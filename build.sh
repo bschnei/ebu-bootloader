@@ -12,7 +12,6 @@ export a3700_utils=${ROOT_DIR}/A3700-utils-marvell
 export atf=${ROOT_DIR}/atf-marvell
 export uboot=${ROOT_DIR}/u-boot-marvell
 export mvddr=${ROOT_DIR}/mv-ddr-marvell
-export kernel=${ROOT_DIR}/linux
 
 # for atf
 export BL33=${uboot}/u-boot.bin
@@ -20,15 +19,9 @@ export CROSS_CM3=/usr/bin/arm-linux-gnueabi-
 export WTP=${a3700_utils}
 export MV_DDR_PATH=${mvddr}
 
-export PRJNAME=espressobin_ultra
-export BUILDTYPE=debug
+export PRJNAME=ebu
 
-if [ "${BUILDTYPE}" == "release" ]; then
-    DATESTR="${BUILD_DATE}-rel"
-else
-    DATESTR="${BUILD_DATE}-dbg"
-fi
-export BUILDOUT=${ROOT_DIR}/out/build-${DATESTR}
+export BUILDOUT=${ROOT_DIR}/out/${BUILD_DATE}
 
 function query_commitid {
     local path=$1
@@ -94,33 +87,6 @@ function cpu_string {
     echo $str
 }
 
-function updateConfig {
-    local conf=$1
-    local key=$2
-    local data=$3
-
-    if [ -z "$conf" ] || [ -z "$key" ]; then
-        return 1
-    fi
-
-    num=`awk -F"=" '!/^($|[[:space:]]*#)/ && /^(\s*)'${key}[^A-Za-z0-9_]'/ {print NR}' ${conf}`
-    if [ -z "${num}" ]; then
-        if [ ! -z "${data}" ]; then
-            # not found, add new key pair to conf
-            echo "${key}=${data}" >> ${conf}
-        fi
-    else
-        if [ -z "${data}" ]; then
-            # del the key
-            sed -i "${num}d" ${conf}
-        else
-            # update the data
-            sed -i "${num}c ${key}=${data}" ${conf}
-        fi
-    fi
-    return 0
-}
-
 function create_dir {
     local dir=$1
 
@@ -147,20 +113,12 @@ function build_uboot {
     # update u-boot commit id
     UBOOTGITID=$(query_commitid $uboot)
 
-    if [ "${BUILDTYPE}" == "release" ]; then
-        make -C $uboot distclean
-        if [ -d "$uboot/.git" ]; then
-            git -C $uboot clean -f
-        fi
+    make -C $uboot distclean
+    if [ -d "$uboot/.git" ]; then
+        git -C $uboot clean -f
     fi
 
     make -C $uboot $defconfig
-
-    # update emmcboot config
-    if [ "$bootdev" == "emmc" ]; then
-        updateConfig $uboot/.config 'CONFIG_MVEBU_MMC_BOOT' 'y'
-        updateConfig $uboot/.config 'CONFIG_SYS_MMC_ENV_PART' '1'
-    fi
 
     if [ -z "${dts}" ]; then
         make -C $uboot
@@ -203,19 +161,14 @@ function build_atf {
     # build image
     make -C $atf distclean
 
-    if [ $bootdev != "emmc" ]; then
-        make -C $atf DEBUG=0 USE_COHERENT_MEM=0 LOG_LEVEL=20 CLOCKSPRESET=CPU_${cpu_speed}_DDR_${ddr_speed} PLAT=a3700 DDR_TOPOLOGY=${ddr_topology} all fip
-        # spi-flash boot
-        FLASHOUT=${BUILDOUT}/${PRJNAME}-bootloader-${cpustr}-${ddrstr}-atf-${ATFGITID}-uboot-g${UBOOTGITID}-utils-${WTPGITID}-${DATESTR}.bin
+    make -C $atf DEBUG=0 USE_COHERENT_MEM=0 LOG_LEVEL=20 CLOCKSPRESET=CPU_${cpu_speed}_DDR_${ddr_speed} PLAT=a3700 DDR_TOPOLOGY=5 CRYPTOPP_PATH=${ROOT_DIR}/cryptopp all fip mrvl_flash
 
-        # uartboot
-        UARTIMG=${BUILDOUT}/${PRJNAME}-uartboot-${cpustr}-${ddrstr}-atf-${ATFGITID}-uboot-${UBOOTGITID}-utils-${WTPGITID}-${DATESTR}.tgz
-        cp $atf/build/a3700/release/uart-images.tgz ${UARTIMG}
-    else
-        make -C $atf DEBUG=0 USE_COHERENT_MEM=0 LOG_LEVEL=20 CLOCKSPRESET=CPU_${cpu_speed}_DDR_${ddr_speed} DDR_TOPOLOGY=${ddr_topology} BOOTDEV=EMMCNORM PARTNUM=1 PLAT=a3700 all fip
-        # emmc boot
-        FLASHOUT=${BUILDOUT}/${PRJNAME}-emmcloader-${cpustr}-${ddrstr}-atf-${ATFGITID}-uboot-g${UBOOTGITID}-utils-${WTPGITID}-${DATESTR}.bin
-    fi
+    # spi-flash boot
+    FLASHOUT=${BUILDOUT}/${PRJNAME}-bootloader-${cpustr}-atf-${ATFGITID}-uboot-g${UBOOTGITID}-utils-${WTPGITID}-${BUILD_DATE}.bin
+
+    # uartboot
+    UARTIMG=${BUILDOUT}/${PRJNAME}-uartboot-${cpustr}-atf-${ATFGITID}-uboot-${UBOOTGITID}-utils-${WTPGITID}-${BUILD_DATE}.tgz
+    cp $atf/build/a3700/release/uart-images.tgz ${UARTIMG}
 
     OUTPUTMSG="${OUTPUTMSG}`basename ${FLASHOUT}`\n"
     # copy image to output folder
@@ -234,9 +187,6 @@ function build_bootloader {
     # build cellular-cpe
     build_uboot gti_ccpe-88f3720_defconfig armada-3720-ccpe flash
 
-    # build axc300 hw.v3
-    #build_uboot gti_axc300-88f3720_defconfig armada-3720-axc300-v3 flash
-
     if [ ! -f ${BL33} ]; then
         echo "Failed to build u-boot!"
         return 0
@@ -249,92 +199,12 @@ function build_bootloader {
         build_atf $topology $speed flash
     done
 
-    local TARGET="5,1000 5,1200"
-
-    # for emmcloader
-
-    # build cellular-cpe
-    build_uboot gti_ccpe-88f3720_defconfig armada-3720-ccpe emmc
-
-    # build axc300 hw.v3
-    #build_uboot gti_axc300-88f3720_defconfig armada-3720-axc300-v3 emmc
-
-    if [ ! -f ${BL33} ]; then
-        echo "Failed to build u-boot!"
-        return 0
-    fi
-
-    for type in ${TARGET}
-    do
-        topology=`echo $type | awk -F"," '{print $1}'`
-        speed=`echo $type | awk -F"," '{print $2}'`
-        build_atf $topology $speed emmc
-    done
     printf "\nOutput:\n${OUTPUTMSG}\n"
 }
 
-function build_kernel {
-
-    if [ "${BUILDTYPE}" == "release" ]; then
-        if [ -f $kernel/.scmversion ]; then
-            rm $kernel/.scmversion
-            make -C $kernel clean
-        fi
-    else
-        if [ ! -f $kernel/.scmversion ]; then
-            touch $kernel/.scmversion
-        fi
-    fi
-
-    make -C $kernel gti_ccpe-88f3720_defconfig
-    make -C $kernel -j4
-    make -C $kernel modules_install INSTALL_MOD_PATH=${BUILDOUT}
-
-    if [ -f "$kernel/arch/arm64/boot/Image" ]; then
-        create_dir ${BUILDOUT}/boot
-
-        cp $kernel/arch/arm64/boot/Image ${BUILDOUT}/boot/
-        cp $kernel/arch/arm64/boot/dts/marvell/armada-3720-ccpe*.dtb ${BUILDOUT}/boot/
-    fi
-}
-
-# gtibuild $build-prj $build-type $version
 function gtibuild {
-    local build_prj=$1
-    local build_type=$2
-    local build_ver=$3
-
-    if [ -z "$build_type" ]; then
-        export BUILDTYPE=debug
-    fi
-    export BUILDTYPE=$build_type
-
-    if [ "${BUILDTYPE}" == "release" ]; then
-        DATESTR="${BUILD_DATE}-rel"
-    else
-        DATESTR="${BUILD_DATE}-dbg"
-    fi
-
-    export BUILDOUT=${ROOT_DIR}/out/build-${DATESTR}
 
     create_dir ${BUILDOUT}
 
-    case $build_prj in
-      "bootloader")
-        build_bootloader
-      ;;
-      "kernel")
-        build_kernel
-      ;;
-      "all")
-        build_bootloader
-        build_kernel
-      ;;
-      *)
-        echo "Unknown project"
-      ;;
-    esac
+    build_bootloader
 }
-
-# create output directory
-create_dir ${BUILDOUT}

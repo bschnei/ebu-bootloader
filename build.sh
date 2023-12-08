@@ -9,7 +9,8 @@ export CROSS_COMPILE=${ROOT_DIR}/toolchain/gcc-linaro-7.3.1-2018.05-x86_64_aarch
 
 # source dirs
 export a3700_utils=${ROOT_DIR}/A3700-utils-marvell
-export atf=${ROOT_DIR}/atf-marvell
+#export atf=${ROOT_DIR}/atf-marvell
+export atf=${ROOT_DIR}/trusted-firmware-a
 export uboot=${ROOT_DIR}/u-boot-marvell
 export mvddr=${ROOT_DIR}/mv-ddr-marvell
 

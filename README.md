@@ -39,11 +39,21 @@ Note that it seems in some cases git is called within the builds for at least tw
 ## Patching U-Boot
 U-Boot will fail to compile on newer GCC compilers unless patched. See [here](https://github.com/BPI-SINOVOIP/BPI-M4-bsp/issues/4#issuecomment-1296184876) for a fix.
 
+## Configuring CPU Clock Speed
+
+In the `build_atf()` function, there is a `cpu_speed` variable. This variable takes integer values from 200 to 1200 in 200 increments. While the ESPRESSObin Ultra has mixed advertising claiming speeds either up to 1 or 1.2Ghz, several sources suggest a 1.2Ghz clock speed is the source of stability problems in ESPRESSObin V7s. It's unclear if this is also a problem for the ESPRESSObin Ultra (seems likely), nor whether it is a problem that could/needs to be resolved in firmware.
+
+The Linux kernel has explicitly disabled 1.2Ghz as a speed for this device, and the max speed they seem to allow via dynamic power management is 1GHz.
+
+To make things even more confusing, the factory bootloader image runs at 800MHz, and when Linux boots it does not seem able to scale the clock speed up. Meanwhile build instructions on the manufacturer's website, as well as the repo I forked to start this project, build 1Ghz and 1.2Ghz versions.
+
+In practice 1GHz builds are stable and plenty fast for my application so that's what I use.
+
 ## Building
 ```
 source build.sh
-gtibuild
+build_bootloader
 ```
-# Flashing
-Put the .bin file from the out/ folder you want to flash onto a USB flash drive and use the `bubt` command in u-boot to flash. If your device can't make it to the u-boot prompt, you'll need to boot a stable image via UART and then use bubt u-boot to flash a stable image. Don't use the WtpDownloader tool from Marvell. It sucks. Use the [mox-imager](https://gitlab.nic.cz/turris/mox-imager) instead.
+## Flashing
+Put the .bin file from the out/ folder you want to flash onto a USB flash drive and use the `bubt` command in u-boot to flash. If your device can't make it to the u-boot prompt, you'll need to boot a stable image via UART and then use bubt u-boot to flash a stable image. Don't use the WtpDownloader tool from Marvell. It sucks. Use [mox-imager](https://gitlab.nic.cz/turris/mox-imager) instead.
 

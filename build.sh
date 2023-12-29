@@ -69,7 +69,6 @@ function build_atf {
     make -C "$atf" DEBUG=0 USE_COHERENT_MEM=0 LOG_LEVEL=20 \
             CLOCKSPRESET=CPU_${cpu_speed}_DDR_${ddr_speed} \
             PLAT=a3700 DDR_TOPOLOGY=${ddr_topology} \
-            CRYPTOPP_PATH="${ROOT_DIR}"/cryptopp \
             all fip mrvl_flash
 
     return 0

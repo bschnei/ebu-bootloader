@@ -17,10 +17,6 @@ export CROSS_CM3=/usr/bin/arm-linux-gnueabi-
 export WTP=${a3700_utils}
 export MV_DDR_PATH=${ROOT_DIR}/mv-ddr-marvell
 
-BUILD_DATE=$(date +"%Y%m%d")
-export BUILD_DATE
-export BUILDOUT=${ROOT_DIR}/out/${BUILD_DATE}
-
 function query_commitid {
     local path=$1
 
@@ -34,27 +30,12 @@ function query_commitid {
     echo "$commitid"
 }
 
-function create_dir {
-    local dir=$1
-
-    if [ -z "$dir" ]; then
-        return
-    fi
-
-    if [ ! -d "$dir" ]; then
-        mkdir -p "$dir"
-    fi
-}
-
 function build_uboot {
 
     if [ -f "$uboot/u-boot.bin" ]; then
         # remove old u-boot.bin
         rm "$uboot/u-boot.bin"
     fi
-
-    # update u-boot commit id
-    UBOOTGITID=$(query_commitid "$uboot")
 
     make -C "$uboot" distclean
     if [ -d "$uboot/.git" ]; then
@@ -69,12 +50,10 @@ function build_uboot {
 
 # build ARM Trusted Firmware
 function build_atf {
-
+    local cpu_speed=$1
+    
     # 5 = ESPRESSObin Ultra
     local ddr_topology=5
-
-    # See README
-    local cpu_speed=1000
 
     # DDR clock speed is a function of cpu_speed
     local ddr_speed=800
@@ -93,24 +72,10 @@ function build_atf {
             CRYPTOPP_PATH="${ROOT_DIR}"/cryptopp \
             all fip mrvl_flash
 
-    # get commit ids
-    WTPGITID=$(query_commitid "$a3700_utils")
-    ATFGITID=$(query_commitid "$atf")
-
-    # record build settings in a separate file
-    local infomsg="CPU: ${cpu_speed}\nATF: g${ATFGITID}\nU-Boot: g${UBOOTGITID}\nA3700 Utils: g${WTPGITID}"
-    echo -e "$infomsg" > "${BUILDOUT}"/buildinfo.txt
-    
-    # copy image to output folder
-    cp "$atf/build/a3700/release/flash-image.bin" "$BUILDOUT/flash.bin"
-    sync
-
     return 0
 }
 
 function build_bootloader {
-
-    create_dir "${BUILDOUT}"
 
     # U-Boot needs to build successfully first since it gets
     # integrated into a single flash image file as part of
@@ -122,6 +87,26 @@ function build_bootloader {
         return 0
     fi
 
-    build_atf
+    # see README
+    local cpu_speed=1000
+
+    build_atf $cpu_speed
+
+    # package the output
+    local build_path=${ROOT_DIR}/build/$(date +"%Y%m%d-%H%M")
+    mkdir -p "$build_path"
+
+    # get commit ids
+    local git_wtp=$(query_commitid "$a3700_utils")
+    local git_atf=$(query_commitid "$atf")
+    local git_uboot=$(query_commitid "$uboot")
+
+    # record build settings
+    local infomsg="CPU: ${cpu_speed}\nATF: g${git_atf}\nU-Boot: g${git_uboot}\nA3700 Utils: g${git_wtp}"
+    echo -e "$infomsg" > "$build_path"/buildinfo.txt
+
+    # copy image to output folder
+    cp "$atf/build/a3700/release/flash-image.bin" "$build_path/flash.bin"
+    sync
 
 }

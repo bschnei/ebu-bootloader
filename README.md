@@ -31,7 +31,7 @@ __IMPORTANT:__ if you follow the build directions on the [manufacturer's page](h
 ```
 git clone https://github.com/globalscaletechnologies/A3700-utils-marvell.git -b A3700_utils-armada-18.12.0-gti
 git clone https://github.com/globalscaletechnologies/atf-marvell.git -b atf-v1.5-armada-18.12-gti trusted-firmware-a
-git clone https://github.com/globalscaletechnologies/mv-ddr-marvell.git
+git clone https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell
 git clone https://github.com/globalscaletechnologies/u-boot-marvell.git -b u-boot-2018.03-armada-18.12-gti
 ```
 Note that it seems in some cases git is called within the builds for at least two of the above projects. As a result, they need to be git repos and not just pure source code. Source: https://trustedfirmware-a.readthedocs.io/en/latest/plat/marvell/index.html

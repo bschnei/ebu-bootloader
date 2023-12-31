@@ -66,8 +66,8 @@ function build_atf {
             BL33=${uboot}/u-boot.bin \
             all fip mrvl_flash
 
-    # NOTE: in older ATF versions, a build target that is only "mrvl_flash" or only "fip" fails to boot, so use "all fip"
-    # This may not be an issue in newer versions of ATF, but testing is needed to be sure.
+    # NOTE: in older ATF versions, a build target that is only "mrvl_flash" or only "fip" will fail to boot, so use "all fip"
+    # This does not seem to be an issue in newer versions of ATF--"mrvl flash" seems like it should work, but testing is needed.
 
     return 0
 }

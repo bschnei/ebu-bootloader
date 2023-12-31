@@ -48,7 +48,7 @@ U-Boot will fail to compile on newer GCC compilers unless patched. If that happe
 
 ## Configuring CPU Clock Speed
 
-In the `build_atf()` function, there is a `cpu_speed` variable. This variable takes integer values from 200 to 1200 in 200 increments. While the ESPRESSObin Ultra has mixed advertising claiming speeds either up to 1 or 1.2Ghz, several sources suggest a 1.2Ghz clock speed is the source of stability problems in ESPRESSObin V7s. It's unclear if this is also a problem for the ESPRESSObin Ultra (seems likely), nor whether it is a problem that could/needs to be resolved in firmware.
+In the `build_bootloader()` function, there is a `cpu_speed` variable. This variable takes integer values from 800 to 1200 in 200 increments. While the ESPRESSObin Ultra has mixed advertising claiming speeds either up to 1 or 1.2Ghz, several sources suggest a 1.2Ghz clock speed is the source of stability problems in ESPRESSObin V7s. It's unclear if this is also a problem for the ESPRESSObin Ultra (seems likely), nor whether it is a problem that could/needs to be resolved in firmware.
 
 The Linux kernel has explicitly disabled 1.2Ghz as a speed for this device, and the max speed they seem to allow via dynamic power management is 1GHz.
 

@@ -36,12 +36,17 @@ This toolchain is fairly old and likely a limiting factor in the ability to upgr
 __IMPORTANT:__ if you follow the build directions on the manufacturer's page and not the directions below you will encounter errors. In particular you want to use the `-gti` suffixed branches across all of the manufacturer's repos and not just some of them.
 
 ```
+git clone https://git.trustedfirmware.org/TF-A/trusted-firmware-a.git -b v2.10
+git clone https://github.com/weidai11/cryptopp.git -b CRYPTOPP_8_9_0
 git clone https://github.com/globalscaletechnologies/A3700-utils-marvell.git -b A3700_utils-armada-18.12.0-gti
-git clone https://github.com/globalscaletechnologies/atf-marvell.git -b atf-v1.5-armada-18.12-gti trusted-firmware-a
 git clone https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell
 git clone https://github.com/globalscaletechnologies/u-boot-marvell.git -b u-boot-2018.03-armada-18.12-gti
 ```
 Note that it seems in some cases git is called within the builds for at least two of the above projects. As a result, they need to be git repos and not just pure source code. Source: https://trustedfirmware-a.readthedocs.io/en/latest/plat/marvell/index.html
+
+## Patching A3700 Utils
+
+Globalscale added support for building "secondary" images in their fork of A3700 utils in the `buildtim.sh` script. That feature is not supported by upstream ARM Trusted Firmware. The `a3700.patch` file can be applied to the A3700-utils-marvell repo to remove that feature and allow builds to complete without error.
 
 ## Patching U-Boot
 U-Boot will fail to compile on newer GCC compilers unless patched. If that happens, see [here](https://github.com/BPI-SINOVOIP/BPI-M4-bsp/issues/4#issuecomment-1296184876) for a fix.
@@ -62,5 +67,4 @@ source build.sh
 build_bootloader
 ```
 ## Flashing
-Put the .bin file from the out/ folder you want to flash onto a USB flash drive and use the `bubt` command in u-boot to flash. If your device can't make it to the u-boot prompt, you'll need to boot a stable image via UART and then use bubt u-boot to flash a stable image. Don't use the WtpDownloader tool from Marvell. It sucks. Use [mox-imager](https://gitlab.nic.cz/turris/mox-imager) instead.
-
+Put the flash.bin file from the dated directory under the `build` directory that you want to flash onto a USB flash drive and run `bubt flash.bin spi usb` from u-boot to flash. If your device can't make it to the u-boot prompt, you'll need to boot a known stable image via UART and then use bubt u-boot to flash a stable image. Don't use the WtpDownloader tool from Marvell. It sucks. Use [mox-imager](https://gitlab.nic.cz/turris/mox-imager) instead.

@@ -62,10 +62,12 @@ function build_atf {
             DDR_TOPOLOGY=5 \
             CLOCKSPRESET=CPU_${cpu_speed}_DDR_${ddr_speed} \
             WTP=${a3700_utils} \
+            CRYPTOPP_PATH="$ROOT_DIR"/cryptopp \
             BL33=${uboot}/u-boot.bin \
-            all fip
+            all fip mrvl_flash
 
-    # NOTE: build target that is only "mrvl_flash" or only "fip" currently fails to boot, so use "all fip"
+    # NOTE: in older ATF versions, a build target that is only "mrvl_flash" or only "fip" fails to boot, so use "all fip"
+    # This may not be an issue in newer versions of ATF, but testing is needed to be sure.
 
     return 0
 }
@@ -81,6 +83,11 @@ function build_bootloader {
     local cpu_speed=1000
 
     build_atf $cpu_speed
+
+    if [ ! -f "$atf/build/a3700/release/flash-image.bin" ]; then
+        echo "Failed to build FIP!"
+        return 0
+    fi
 
     # package the output
     local build_path

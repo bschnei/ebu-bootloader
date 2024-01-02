@@ -38,7 +38,6 @@ This toolchain is fairly old and likely a limiting factor in the ability to upgr
 __IMPORTANT:__ if you follow the build directions on the manufacturer's page and not the directions below you will encounter errors. In particular you want to use the `-gti` suffixed branches across all of the manufacturer's repos and not just some of them.
 
 ```
-git clone https://github.com/weidai11/cryptopp.git -b CRYPTOPP_8_9_0
 git clone https://github.com/globalscaletechnologies/A3700-utils-marvell.git -b A3700_utils-armada-18.12.0-gti
 git clone https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell
 git clone https://github.com/globalscaletechnologies/u-boot-marvell.git -b u-boot-2018.03-armada-18.12-gti

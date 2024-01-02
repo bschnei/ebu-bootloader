@@ -1,0 +1,3 @@
+[submodule "trusted-firmware-a"]
+	path = trusted-firmware-a
+	url = https://git.trustedfirmware.org/TF-A/trusted-firmware-a.git

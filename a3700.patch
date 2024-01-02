@@ -1,5 +1,5 @@
 diff --git a/script/buildtim.sh b/script/buildtim.sh
-index 9c9dded..a44cb68 100755
+index 9c9dded..d528770 100755
 --- a/script/buildtim.sh
 +++ b/script/buildtim.sh
 @@ -9,12 +9,11 @@
@@ -28,7 +28,7 @@ index 9c9dded..a44cb68 100755
 -DEBUG=$9
 -OUTFILE=${10}
 +DEBUG=$8
-+OUTFILE=${9}
++OUTFILE=$9
  
  CLOCKSPATH=$WTPPATH/tim/ddr
  SYSINITPATH=$WTPPATH/wtmi/sys_init
@@ -42,7 +42,7 @@ index 9c9dded..a44cb68 100755
  # Number of images excepting TIM
  IMGSNUM=`ls -l $IMGPATH/$IMGPREF*.$FILEEXT | wc -l`
  # Reserved area definition for TIM/NTIM - file name prefix
-@@ -57,9 +52,6 @@ GETDDRPARAMS=$WTPPATH/script/getddrparams.sh
+@@ -57,18 +52,15 @@ GETDDRPARAMS=$WTPPATH/script/getddrparams.sh
  
  # TIM/NTIM image definition file name prefix
  TIMPREF="tim"
@@ -52,3 +52,23 @@ index 9c9dded..a44cb68 100755
  # CSK keys file name prefix
  CSKPREF="csk"
  # KAK key file name prefix (TIM signature)
+ KAKPREF="kak"
+ 
+ # Below values used only by TIMN
+-TIMNOUTFILE=${11}
+-SIGNFILE=${12}
+-ENCRYPT=${13}
++TIMNOUTFILE=${10}
++SIGNFILE=${11}
++ENCRYPT=${12}
+ # TIMN image definition file name prefix
+ TIMNPREF="timn"
+ # Reserved area definition for TIMN - file name prefix
+@@ -100,7 +92,6 @@ usage () {
+ 	echo " <clocks_preset> - Name of clocks preset to use - see \"build.txt\" for details"
+ 	echo " <ddr_topology> - Index of DDR topology map"
+ 	echo " <part_num>    - partition number of the boot device"
+-	echo " <primary>     - build for primary or secondary image"
+ 	echo " <debug>       - debug flag to enable TIM DDR package's log"
+ 	echo " <output>      - Output TIM/NTIM file name"
+ 	echo " [timN_out]    - Output TIMN file name (required for trusted boot only)"

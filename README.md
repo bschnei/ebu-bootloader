@@ -46,7 +46,7 @@ Note that it seems in some cases git is called within the builds for at least tw
 
 ## Patching A3700 Utils
 
-Globalscale added support for building "secondary" images in their fork of A3700 utils in the `buildtim.sh` script. That feature is not supported by upstream ARM Trusted Firmware. The `a3700.patch` file can be applied to the A3700-utils-marvell repo to remove that feature and allow builds to complete without error.
+Globalscale added support for building "secondary" images in their fork of A3700 utils in the `buildtim.sh` script. That feature is not supported by upstream ARM Trusted Firmware. The `a3700.patch` file has to be applied to the A3700-utils-marvell repo to remove that feature and allow builds to complete without error.
 
 ## Patching U-Boot
 U-Boot will fail to compile on newer GCC compilers unless patched. If that happens, see [here](https://github.com/BPI-SINOVOIP/BPI-M4-bsp/issues/4#issuecomment-1296184876) for a fix.

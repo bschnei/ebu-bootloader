@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-ROOT_DIR=$(pwd)
+ROOT_DIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
 
 # cross compile settings for make
 export ARCH=arm64
@@ -10,13 +10,10 @@ export CROSS_COMPILE=${ROOT_DIR}/toolchain/gcc-linaro-7.3.1-2018.05-x86_64_aarch
 # 32-bit compiler. Set explicitly or modify as needed.
 #export CROSS_CM3=/usr/bin/arm-linux-gnueabi-
 
-# location of source code
-export a3700_utils=${ROOT_DIR}/A3700-utils-marvell
-export atf=${ROOT_DIR}/trusted-firmware-a
-export uboot=${ROOT_DIR}/u-boot-marvell
+function build_bootloader {
 
-
-function build_uboot {
+    # path to U-Boot source code
+    local uboot=${ROOT_DIR}/u-boot-marvell
 
     make -C "$uboot" distclean
 
@@ -25,15 +22,6 @@ function build_uboot {
 
     # build u-boot.bin
     make -C "$uboot" DEVICE_TREE=armada-3720-ccpe
-
-    return 0
-}
-
-function build_bootloader {
-
-    # U-Boot needs to build successfully first since it gets
-    # integrated into the final image file
-    build_uboot
 
     # see README
     local cpu_speed=1000
@@ -44,8 +32,11 @@ function build_bootloader {
         ddr_speed=750
     fi
 
-    # path to A3700 git repository (must be a git repo)
+    # path to A3700 git repo (must be a git repo)
     local a3700_utils=${ROOT_DIR}/A3700-utils-marvell
+
+    # path to ARM Trusted Firmware repo
+    local atf=${ROOT_DIR}/trusted-firmware-a
 
     # clean a3700-utils image to prevent using old ddr image
     make -C "$a3700_utils" clean DDR_TOPOLOGY=5
@@ -62,10 +53,7 @@ function build_bootloader {
             WTP=${a3700_utils} \
             CRYPTOPP_PATH="$ROOT_DIR"/cryptopp \
             BL33=${uboot}/u-boot.bin \
-            all fip mrvl_flash
-
-    # NOTE: in older ATF versions, a build target that is only "mrvl_flash" or only "fip" will fail to boot, so use "all fip"
-    # This does not seem to be an issue in newer versions of ATF--"mrvl flash" seems like it should work, but testing is needed.
+            mrvl_flash
 
     if [ ! -f "$atf/build/a3700/release/flash-image.bin" ]; then
         echo "Failed to build FIP!"

@@ -45,8 +45,10 @@ git clone https://github.com/globalscaletechnologies/u-boot-marvell.git -b u-boo
 Note that it seems in some cases git is called within the builds for at least two of the above projects. As a result, they need to be git repos and not just pure source code. Source: https://trustedfirmware-a.readthedocs.io/en/latest/plat/marvell/index.html
 
 ## Patching A3700 Utils
+Globalscale added support for building "secondary" images in their fork of A3700 utils in the `buildtim.sh` script. That feature is not supported by upstream ARM Trusted Firmware. The `a3700.patch` file has to be applied to Globalscale's A3700-utils repo to remove that feature and allow builds to complete without error. This is not necessary for Marvell's A3700-utils repo.
 
-Globalscale added support for building "secondary" images in their fork of A3700 utils in the `buildtim.sh` script. That feature is not supported by upstream ARM Trusted Firmware. The `a3700.patch` file has to be applied to the A3700-utils-marvell repo to remove that feature and allow builds to complete without error.
+## Patching mv-ddr-marvell
+Globalscale's A3700 utils does not use the `ddr_static.txt` file produced by the executable built by the mv-ddr-marvell repo. The difference introduced by [this commit](https://github.com/MarvellEmbeddedProcessors/A3700-utils-marvell/commit/feced21c4c343428eab2f99cc9c78028bb961690) is important for stability. So if we want to use Marvell's A3700-utils and mv-ddr-marvell repos we can patch mv-ddr-marvell so that the `ddr_static.txt` file produced is identical to the [one Globalscale saved in their repo](https://github.com/globalscaletechnologies/A3700-utils-marvell/blob/A3700_utils-armada-18.12.0-gti/tim/ddr/espressobin-ddr4-1cs-1g.txt). Apply the `mv-ddr.patch` to the mv-ddr-marvell repo to patch.
 
 ## Patching U-Boot
 U-Boot will fail to compile on newer GCC compilers unless patched. If that happens, see [here](https://github.com/BPI-SINOVOIP/BPI-M4-bsp/issues/4#issuecomment-1296184876) for a fix.

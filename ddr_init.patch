@@ -1,0 +1,1139 @@
+diff --git a/wtmi/sys_init/ddr/ddr.c b/wtmi/sys_init/ddr/ddr.c
+index a7f7398..1ad1ab2 100644
+--- a/wtmi/sys_init/ddr/ddr.c
++++ b/wtmi/sys_init/ddr/ddr.c
+@@ -36,12 +36,6 @@
+ #include "ddr.h"
+ #include "ddr_support.h"
+ 
+-#define SELF_REFRESH_STS(cs_num)        (BIT2 << (cs_num * 4))
+-#define USER_CMD_0_CS_BIT(cs_num)      (BIT24 << (cs_num))
+-#define USER_CMD_0_SELF_REFRESH_ENTRY (0x10000040)
+-#define USER_CMD_0_SELF_REFRESH_EXIT   (0x10000080)
+-#define USER_CMD_0_WCB_DRAIN_REQ (0x10000002)
+-
+ void mc6_init_timing_selfrefresh(enum ddr_type type, unsigned int speed)
+ {
+         unsigned int wrval = 0, rdval = 0;
+@@ -99,84 +93,54 @@ void set_clear_trm(int set, unsigned int orig_val)
+                 ll_write32(CH0_PHY_Control_2, wrval);
+         }
+ }
+-void wait_for_mc_idle(void)
+-{
+-	int timeout = 322; /* 50us loop time */
+-
+-	ll_write32(USER_COMMAND_0, USER_CMD_0_WCB_DRAIN_REQ);
+-	while(timeout && (ll_read32(CH0_MC_STATUS) != 0xd9fff))
+-	{
+-		timeout--;
+-	}
+-	LogMsg(LOG_LEVEL_INFO, FLAG_REGS_DUMP_ALL, "\nCH0_MC_STATUS[%08X] = %08X", CH0_MC_STATUS,
+-		ll_read32(CH0_MC_STATUS));
+-}
+ 
+-void self_refresh_entry(u32 cs_num, enum ddr_type type)
++void self_refresh_entry()
+ {
+-	u32 timeout = 322; /* 50us timeout */
+-	u32 sts_mask = SELF_REFRESH_STS(cs_num);
+-
+-	ll_write32(USER_COMMAND_0, (USER_CMD_0_SELF_REFRESH_ENTRY |
+-		   USER_CMD_0_CS_BIT(cs_num)));
+-	if (type == DDR4)
+-	{
+-		while(timeout && !(ll_read32(DRAM_STATUS) & sts_mask))
+-			timeout--;
+-		if(timeout == 0)
+-			LogMsg(LOG_LEVEL_ERROR, FLAG_REGS_DUMP_SELFTEST, "\nSELF REFRESH ENTRY TIMEOUT");
+-	}
+-	else
+-		wait_ns(1000);
+-
+-	LogMsg(LOG_LEVEL_INFO, FLAG_REGS_DUMP_SELFTEST,
+-		"\n\nCS %d Now in Self-refresh Mode", cs_num);
++	ll_write32(USER_COMMAND_0, 0x13000040);   // Enter self-refresh
++	LogMsg(LOG_LEVEL_INFO, FLAG_REGS_DUMP_SELFTEST, "\n\nNow in Self-refresh Mode");
+ }
+ 
+-void self_refresh_exit(u32 cs_num)
++void self_refresh_exit()
+ {
+-	u32 sts_mask = SELF_REFRESH_STS(cs_num);
+-
+-	ll_write32(USER_COMMAND_0, (USER_CMD_0_SELF_REFRESH_EXIT |
+-		   USER_CMD_0_CS_BIT(cs_num)));
+-	while ((ll_read32(DRAM_STATUS) & sts_mask))
+-		;
+-	LogMsg(LOG_LEVEL_INFO, FLAG_REGS_DUMP_SELFTEST,
+-		"\nCS %d Exited self-refresh ...\n", cs_num);
++	ll_write32(USER_COMMAND_0, 0x13000080);   // Exit self-refresh
++	while((ll_read32(DRAM_STATUS) & BIT2)) {};
++	LogMsg(LOG_LEVEL_INFO, FLAG_REGS_DUMP_SELFTEST, "\nExited self-refresh ...\n");
+ }
+ 
+ void self_refresh_test(int verify, unsigned int base_addr, unsigned int size)
+ {
+-	unsigned int end, temp;
+-	unsigned int *waddr, refresh_error = 0;
++        unsigned int end, temp;
++        unsigned int *waddr, refresh_error = 0;
+ 
+-	end = base_addr + size;
++        end = base_addr + size;
+ 
+-	// Write pattern
+-	LogMsg(LOG_LEVEL_INFO, FLAG_REGS_DUMP_SELFTEST, "\nFill memory before entering Self-refresh...");
+-	for (waddr = (unsigned int *)base_addr; waddr  < (unsigned int *)end ; waddr++)
+-	{
+-		*waddr = (unsigned int)waddr;
+-	}
+-	LogMsg(LOG_LEVEL_INFO, FLAG_REGS_DUMP_SELFTEST, "done");
+-
+-	if(verify)
+-	{
+-		// Check data after exit self refresh
+-		for (waddr = (unsigned int *)base_addr; waddr  < (unsigned int *)end ; waddr++)
+-		{
+-			temp = *waddr;
+-			if (temp != (unsigned int)waddr)
+-			{
+-				LogMsg(LOG_LEVEL_DEBUG, FLAG_REGS_DUMP_SELFTEST, "\nAt 0x%08x, expect 0x%08x, read back 0x%08x", (unsigned int)waddr, (unsigned int)waddr, temp);
+-				refresh_error++;
+-			}
+-		}
+-		if (refresh_error)
+-			LogMsg(LOG_LEVEL_ERROR, FLAG_REGS_DUMP_SELFTEST, "\nSELF-REFRESH TEST FAIL. Error count = 0x%x", refresh_error);
+-		else
+-			LogMsg(LOG_LEVEL_ERROR, FLAG_REGS_DUMP_SELFTEST, "\nSELF-REFRESH TEST PASS");
+-	}
++        if(!verify)
++        {
++                // Write pattern
++                LogMsg(LOG_LEVEL_INFO, FLAG_REGS_DUMP_SELFTEST, "\nFill memory before entering Self-refresh...");
++                for (waddr = (unsigned int *)base_addr; waddr  < (unsigned int *)end ; waddr++)
++                {
++                        *waddr = (unsigned int)waddr;
++                }
++                LogMsg(LOG_LEVEL_INFO, FLAG_REGS_DUMP_SELFTEST, "done");
++        }
++        else
++        {
++                // Check data after exit self refresh
++                for (waddr = (unsigned int *)base_addr; waddr  < (unsigned int *)end ; waddr++)
++                {
++                        temp = *waddr;
++                        if (temp != (unsigned int)waddr)
++                        {
++                                LogMsg(LOG_LEVEL_DEBUG, FLAG_REGS_DUMP_SELFTEST, "\nAt 0x%08x, expect 0x%08x, read back 0x%08x", (unsigned int)waddr, (unsigned int)waddr, temp);
++                                refresh_error++;
++                        }
++                }
++                if (refresh_error)
++                        LogMsg(LOG_LEVEL_ERROR, FLAG_REGS_DUMP_SELFTEST, "\nSELF-REFRESH TEST FAIL. Error count = 0x%x", refresh_error);
++                else
++                        LogMsg(LOG_LEVEL_ERROR, FLAG_REGS_DUMP_SELFTEST, "\nSELF-REFRESH TEST PASS");
++        }
+ }
+ 
+ void phyinit_sequence_sync2(volatile unsigned short ld_phase,
+diff --git a/wtmi/sys_init/ddr/ddr.h b/wtmi/sys_init/ddr/ddr.h
+index 2d79d9c..8181138 100644
+--- a/wtmi/sys_init/ddr/ddr.h
++++ b/wtmi/sys_init/ddr/ddr.h
+@@ -36,7 +36,6 @@
+ 
+ #include "ddrcore.h"
+ 
+-#define CH0_MC_STATUS				0xC0000004
+ #define DRAM_STATUS				0xC0000008
+ #define CH0_Dram_Config_1			0xC0000300
+ #define CH0_Dram_Config_2			0xC0000304
+@@ -90,18 +89,15 @@
+ #define PHY_CONTROL_8				0xC000101C
+ #define PHY_CONTROL_9				0xC0001020
+ 
+-int dll_tuning(unsigned int ratio, unsigned int num_of_cs,
+-	       const struct ddr_init_para *init_para, bool mpr_mode,
+-	       bool save_res);
++unsigned int DLL_tuning(unsigned int ratio, unsigned int num_of_cs, struct ddr_init_para init_para, unsigned int short_DLL, unsigned int mpr_mode);
+ void mc6_init_timing_selfrefresh(enum ddr_type type, unsigned int speed);
+ void set_clear_trm(int set, unsigned int val);
+-void self_refresh_entry(u32 cs_num, enum ddr_type type);
+-void wait_for_mc_idle(void);
+-void self_refresh_exit(u32 tc_cs_num);
++void self_refresh_entry(void);
++void self_refresh_exit(void);
+ void self_refresh_test(int verify, unsigned int base_addr, unsigned int size);
+ void send_mr_commands(enum ddr_type type);
+ int qs_gating(unsigned int base_addr, unsigned int cs, struct ddr_init_result *result);
+-int vref_read_training(int num_of_cs, struct ddr_init_para init_para);
++unsigned int vref_read_training(int num_of_cs, struct ddr_init_para init_para);
+ unsigned int vref_write_training(int num_of_cs, struct ddr_init_para init_para);
+ int vdac_set(unsigned int vref_range, unsigned int vref_ctrl);
+ int vref_set(unsigned int range, unsigned int VREF_training_value_DQ);
+diff --git a/wtmi/sys_init/ddr/ddrcore.c b/wtmi/sys_init/ddr/ddrcore.c
+index 9b57ceb..f59ba50 100644
+--- a/wtmi/sys_init/ddr/ddrcore.c
++++ b/wtmi/sys_init/ddr/ddrcore.c
+@@ -35,94 +35,10 @@
+ #include "../sys.h"
+ #include "ddr.h"
+ #include "ddr_support.h"
+-#include <stdbool.h>
+-
+-#undef VALIDATION_EYE
+ 
+ #define DDR3_QSGATING
+ #define DDR4_VREF_TRAINING
+ 
+-#define BYTE_ERROR1(a, b, mask)	(((a) & (mask)) != ((b) & (mask)))
+-
+-#ifdef VALIDATION_EYE
+-void rx_sweep_test(void);
+-static int cpu_test(int byte_mask);
+-
+-static const unsigned int pattern[] = {
+-	0x0101fefe,
+-	0xfefe0101,
+-	0x0202fdfd,
+-	0xfdfd0202,
+-	0x0404fbfb,
+-	0xfbfb0404,
+-	0x0808f7f7,
+-	0xf7f70808,
+-	0x1010efef,
+-	0xefef1010,
+-	0x2020dfdf,
+-	0xdfdf2020,
+-	0x4040bfbf,
+-	0xbfbf4040,
+-	0x80807f7f,
+-	0x7f7f8080,
+-	0xf7f78080,
+-	0x8080f7f7,
+-	0xf7f7fbfb,
+-	0xfbfbf7f7,
+-	0x40407f7f,
+-	0x7f7f4040,
+-	0x80804040,
+-	0x80804040,
+-	0xbfbf4040,
+-	0xbfbf4040,
+-	0xdfdf2020,
+-	0x2020dfdf,
+-	0xdfdf2020,
+-	0x1010efef,
+-	0x1010efef,
+-	0x10108080,
+-	0x80801010,
+-	0xf7f70808,
+-	0x0808f7f7,
+-	0x0404fbfb,
+-	0xfbfb4040,
+-	0x4040fbfb,
+-	0x2020fdfd,
+-	0xfdfd2020,
+-	0x2020fdfd,
+-	0x1010efef,
+-	0xfefe0101,
+-	0x10108080,
+-	0x80800101,
+-	0x7f7f8080,
+-	0x80807f7f,
+-	0x4040bfbf,
+-	0xbfbf4040,
+-	0x40402020,
+-	0x20204040,
+-	0xdfdf2020,
+-	0x2020dfdf,
+-	0x1010efef,
+-	0xefef1010,
+-	0xffff0000,
+-	0x0000ffff,
+-	0xffff0000,
+-	0x0000ffff,
+-	0xffff0000,
+-	0x0000ffff,
+-	0xffff0000,
+-	0x00000000,
+-	0x00000000,
+-	0xffff0000,
+-	0x0000ffff,
+-	0xffff0000,
+-	0x0000ffff,
+-	0xffff0000,
+-	0x0000ffff,
+-	0xffff0000
+-};
+-#endif
+-
+ enum ddr_type tc_ddr_type;
+ unsigned int tc_cs_num;
+ int debug_level = 0;
+@@ -155,9 +71,10 @@ int init_ddr(struct ddr_init_para init_para,
+ 	unsigned int disable_rl;
+ #endif
+ #ifdef DDR4_VREF_TRAINING
+-	int vdac_value = 0;
+-	unsigned int vref_value = 0;
++	unsigned int vdac_value=0;
++	unsigned int vref_value=0;
+ #endif
++
+ 	debug_level = init_para.log_level;
+ 	debug_module = init_para.flags;
+ 
+@@ -178,21 +95,15 @@ int init_ddr(struct ddr_init_para init_para,
+ 		 * available for memory test. But the boot image is pre-
+ 		 * loaded and located at 0x0041.0000. Avoiding wripping
+ 		 * out the image data, only fill the test pattern to the
+-		 * first 1KB memory per each chip select and validate by read
+-		 * that the pattern is correct.
++		 * first 1KB memory per each chip select.
+ 		 */
+ 		for(cs=0; cs<tc_cs_num; cs++)
+-			self_refresh_test(1, init_para.cs_wins[cs].base, 1024);
+-
+-	/* 0. Drain WCB and check for various FIFOs to make sure they are all empty */
+-	wait_for_mc_idle();
++			self_refresh_test(0, init_para.cs_wins[cs].base, 1024);
+ 
+ 	/* 1. enter self refresh */
+-	for (cs = 0; cs < tc_cs_num; cs++)
+-		self_refresh_entry(cs, tc_ddr_type);
++	self_refresh_entry();
+ 
+ 	/* 2. setup clock */
+-	LogMsg(LOG_LEVEL_ERROR, FLAG_REGS_DUMP_SELFTEST, "\n\n");
+ 	init_para.clock_init();
+ 
+ 	/* 3. DDRPHY sync2 and DLL reset */
+@@ -225,12 +136,15 @@ int init_ddr(struct ddr_init_para init_para,
+ 	//dll_on_ddrphy();
+ 
+ 	/* 8. exit self refresh */
+-	for (cs = 0; cs < tc_cs_num; cs++)
+-		self_refresh_exit(cs);
++	self_refresh_exit();
+ 
+ 	/* 9. do MR command */
+ 	send_mr_commands(tc_ddr_type);
+ 
++	/* Test the pattern written correctly after exiting self-refresh */
++	if (!init_para.warm_boot)
++		for(cs=0; cs<tc_cs_num; cs++)
++			self_refresh_test(1, init_para.cs_wins[cs].base, 1024);
+ 
+ 	if(init_para.warm_boot)
+         {
+@@ -311,12 +225,15 @@ int init_ddr(struct ddr_init_para init_para,
+ 		LogMsg(LOG_LEVEL_INFO, FLAG_REGS_VREF_READ, "\nBefore vref read training:");
+ 		logs_training_regs(VREF_READ);
+ 		vdac_value = vref_read_training(tc_cs_num, init_para);
+-		if (vdac_value >= 0) {/*training passed*/
++		if(vdac_value != 0)				//training passed
++		{
+ 			LogMsg(LOG_LEVEL_ERROR, FLAG_REGS_VREF_READ, "\nVREF READ TRAINING PASSED");
+ 			LogMsg(LOG_LEVEL_INFO, FLAG_REGS_VREF_READ, "\nFinal vdac_value 0x%02X\n", vdac_value);
+-			vdac_set(1, vdac_value);/*Set the tuned vdac value*/
+-			result->ddr4.vref_read = ll_read32(PHY_Control_15);
+-		} else {
++			vdac_set(1, vdac_value);                //Set the tuned vdac value
++                        result->ddr4.vref_read = ll_read32(PHY_Control_15);
++		}
++		else
++		{
+ 			LogMsg(LOG_LEVEL_ERROR, FLAG_REGS_VREF_READ, "\nVREF READ TRAINING FAILED");
+ 			ret_val = -3;
+ 		}
+@@ -360,16 +277,16 @@ int init_ddr(struct ddr_init_para init_para,
+ 	LogMsg(LOG_LEVEL_INFO, FLAG_REGS_DLL_TUNE, "\n\nDLL TUNING\n==============");
+ 	LogMsg(LOG_LEVEL_INFO, FLAG_REGS_DLL_TUNE, "\nBefore DLL tuning:");
+ 	logs_training_regs(DLL_TUNE);
+-	dll_res = dll_tuning(2, tc_cs_num, &init_para, false, true);
+-	if (dll_res > 0) {
+-		result->dll_tune.dll_ctrl_b0 =
+-			ll_read32(CH0_PHY_DLL_control_B0);
+-		result->dll_tune.dll_ctrl_b1 =
+-			ll_read32(CH0_PHY_DLL_control_B1);
+-		result->dll_tune.dll_ctrl_adcm =
+-			ll_read32(CH0_PHY_DLL_control_ADCM);
++	dll_res = DLL_tuning(2, tc_cs_num, init_para, 0, 0);	//use long DLL method, mpr mode disabled
++	if(dll_res)						//training passed
++	{
++		result->dll_tune.dll_ctrl_b0 = ll_read32(CH0_PHY_DLL_control_B0);
++	        result->dll_tune.dll_ctrl_b1 = ll_read32(CH0_PHY_DLL_control_B1);
++        	result->dll_tune.dll_ctrl_adcm = ll_read32(CH0_PHY_DLL_control_ADCM);
+ 		LogMsg(LOG_LEVEL_ERROR, FLAG_REGS_DLL_TUNE, "\nDLL TUNING PASSED\n");
+-	} else {
++	}
++	else
++	{
+ 		LogMsg(LOG_LEVEL_ERROR, FLAG_REGS_DLL_TUNE, "\nDLL TUNING FAILED\n");
+ 		ret_val = -3;
+ 	}
+@@ -401,147 +318,6 @@ int init_ddr(struct ddr_init_para init_para,
+ 	LogMsg(LOG_LEVEL_INFO, FLAG_REGS_DUMP_ALL, "\n\tCH0_PHY_DLL_control_B0[0x%08X]: 0x%08X", CH0_PHY_DLL_control_B0, ll_read32(CH0_PHY_DLL_control_B0));
+         LogMsg(LOG_LEVEL_INFO, FLAG_REGS_DUMP_ALL, "\n\tCH0_PHY_DLL_control_B1[0x%08X]: 0x%08X", CH0_PHY_DLL_control_B1, ll_read32(CH0_PHY_DLL_control_B1));
+         LogMsg(LOG_LEVEL_INFO, FLAG_REGS_DUMP_ALL, "\n\tCH0_PHY_DLL_control_ADCM[0x%08X]: 0x%08X\n", CH0_PHY_DLL_control_ADCM, ll_read32(CH0_PHY_DLL_control_ADCM));
+-
+-        /* write and read Sanity check */
+-        if (!init_para.warm_boot)
+-                for(cs=0; cs<tc_cs_num; cs++)
+-                        self_refresh_test(1, init_para.cs_wins[cs].base, 1024);
+-
+-#ifdef VALIDATION_EYE
+-	rx_sweep_test();
+-#endif
+-
+-	LogMsg(LOG_LEVEL_ERROR, FLAG_REGS_DUMP_SELFTEST, "\n\n");
+ 	return ret_val;
+ }
+-#ifdef VALIDATION_EYE
+-static int cpu_test(int byte_mask)
+-{
+-	int res = 0;
+-	int *uiSdramOffset = (int *)0x60000000;
+-	int i, pattern_end;
+-
+-	pattern_end = sizeof(pattern) / sizeof(pattern[0]);
+-
+-
+-	for (i = 0; i < pattern_end; i++)
+-		(*uiSdramOffset++) = pattern[i];
+-
+ 
+-	uiSdramOffset = (int *)0x60000000;
+-	for (i = 0; i < pattern_end; i++)
+-		if (BYTE_ERROR1((*uiSdramOffset++),
+-				pattern[i], byte_mask))
+-			res++;
+-
+-
+-	uiSdramOffset = (int *)0x61000000;
+-	for (i = 0; i < pattern_end; i++)
+-		(*uiSdramOffset++) = pattern[i];
+-
+-	uiSdramOffset = (int *)0x61000000;
+-	for (i = 0; i < pattern_end; i++)
+-		if (BYTE_ERROR1((*uiSdramOffset++),
+-				pattern[i], byte_mask))
+-			res++;
+-
+-	uiSdramOffset = (int *)0xa0000000;
+-	for (i = 0; i < pattern_end; i++)
+-		(*uiSdramOffset++) = pattern[i];
+-
+-	uiSdramOffset = (int *)0xa0000000;
+-	for (i = 0; i < pattern_end; i++)
+-		if (BYTE_ERROR1((*uiSdramOffset++),
+-				pattern[i], byte_mask))
+-			res++;
+-
+-	uiSdramOffset = (int *)0xa1000000;
+-	for (i = 0; i < pattern_end; i++)
+-		(*uiSdramOffset++) = pattern[i];
+-
+-	uiSdramOffset = (int *)0xa1000000;
+-	for (i = 0; i < pattern_end; i++)
+-		if (BYTE_ERROR1((*uiSdramOffset++),
+-				pattern[i], byte_mask))
+-			res++;
+-
+-	return res;
+-
+-}
+-void set_adll(unsigned int addr, unsigned int data, unsigned int offset)
+-{
+-	int mask;
+-	unsigned int w32RegVal;
+-	int data_val;
+-
+-	mask = 0x3f << offset;
+-	data_val =  data << offset;
+-	data_val &= mask;
+-	w32RegVal = ll_read32(addr);
+-	w32RegVal &= ~mask;
+-	w32RegVal |= data_val;
+-	ll_write32(addr, w32RegVal);
+-}
+-
+-void rx_sweep_test(void)
+-{
+-	int  byte, addr, adll, res, vref, loop, offset, range,
+-		m_b0, n_b0, m_b1, n_b1, byte_mask;
+-
+-	printf("&&&&&&&&&&& RX SWEEP &&&&&&&&&&&&&&\n");
+-	int vref_default = ll_read32(PHY_Control_15);
+-
+-	int vref_val =  (vref_default & 0x3F000000) >> 24;
+-
+-	int adll_byte0_default = ll_read32(0xc0001050);
+-
+-	m_b0 = (adll_byte0_default & 0x3F0000) >> 16;
+-	n_b0 = (adll_byte0_default & 0x3F000000) >> 24;
+-	int adll_byte1_default = ll_read32(0xc0001054);
+-
+-	m_b1 = (adll_byte1_default & 0x3F0000) >> 16;
+-	n_b1 = (adll_byte1_default & 0x3F000000) >> 24;
+-
+-	printf("m_b0: 0x%x n_b0: 0x%x m_b1: 0x%x n_b1: 0x%x\n"
+-		, m_b0, n_b0, m_b1, n_b1);
+-
+-	for (byte = 0; byte < 2; byte++) {
+-		printf("########### byte : %d ###############\n", byte);
+-		addr = (byte == 0) ? 0xc0001050 : 0xc0001054;
+-		byte_mask = (byte == 0) ? 0x00ff00ff : 0xff00ff00;
+-		for (loop = 0; loop < 2 ; loop++) {
+-			printf("########### loop : %d ###############\n"
+-				, loop);
+-			offset = (loop == 0) ? 16 : 24;
+-			for (vref = 0x3f; vref > 0 ; vref--) {
+-				range = 1;
+-				vdac_set(range, vref);
+-				for (adll = 0; adll < 64; adll++) {
+-					res = 0;
+-					set_adll(addr, adll, offset);
+-					res = cpu_test(byte_mask);
+-					if ((range == 1) &&
+-						(vref == vref_val)) {
+-						if (adll == m_b0)
+-							res = -1;
+-						else if (adll == n_b0)
+-							res = -2;
+-						else if (adll == m_b1)
+-							res = -3;
+-						else if (adll == n_b1)
+-							res = -4;
+-					}
+-					printf("%d, ", res);
+-				}
+-				printf("\n");
+-			}
+-
+-			/*restore defaults*/
+-			ll_write32(0xc0001050, adll_byte0_default);
+-			ll_write32(0xc0001054, adll_byte1_default);
+-			ll_write32(PHY_Control_15, vref_default);
+-		}
+-		printf("\n");
+-	}
+-}
+-#endif
+diff --git a/wtmi/sys_init/ddr/dll_tuning.c b/wtmi/sys_init/ddr/dll_tuning.c
+index bef46ef..fa2d233 100644
+--- a/wtmi/sys_init/ddr/dll_tuning.c
++++ b/wtmi/sys_init/ddr/dll_tuning.c
+@@ -46,115 +46,62 @@
+ #define DLL_PHSEL_START		0x00
+ #define DLL_PHSEL_END		0x3F
+ #define DLL_PHSEL_STEP		0x1
+-#define BYTE_MASK(byte)		(0xff00ff << (byte * 8))
+-#define BYTE_CONTROL(byte)	(PHY_DLL_CONTROL_BASE + (byte) * 4)
+-#define DLL_MASTER		16
+-#define DLL_NEG			24
+-#define DLL_TYPE_MASK(type)	(0x3F << (type))
+-#define BYTE_ERROR(a, b, mask)	(((a) & (mask)) != ((b) & (mask)))
+-
+-
+-struct dll_tuning_info {
+-	unsigned short left;
+-	unsigned short right;
+-	unsigned short medium;
+-};
++
++unsigned int short_DLL_tune(unsigned int ratio, unsigned int cs, unsigned int cs_base, unsigned int mpr_en, unsigned short *ret_m);
+ 
+ static const unsigned int tune_patterns[] =
+ {
+-	0x0101fefe,
+-	0xfefe0101,
+-	0x0202fdfd,
+-	0xfdfd0202,
+-	0x0404fbfb,
+-	0xfbfb0404,
+-	0x0808f7f7,
+-	0xf7f70808,
+-	0x1010efef,
+-	0xefef1010,
+-	0x2020dfdf,
+-	0xdfdf2020,
+-	0x4040bfbf,
+-	0xbfbf4040,
+-	0x80807f7f,
+-	0x7f7f8080,
+-	0xf7f78080,
+-	0x8080f7f7,
+-	0xf7f7fbfb,
+-	0xfbfbf7f7,
+-	0x40407f7f,
+-	0x7f7f4040,
+-	0x80804040,
+-	0x80804040,
+-	0xbfbf4040,
+-	0xbfbf4040,
+-	0xdfdf2020,
+-	0x2020dfdf,
+-	0xdfdf2020,
+-	0x1010efef,
+-	0x1010efef,
+-	0x10108080,
+-	0x80801010,
+-	0xf7f70808,
+-	0x0808f7f7,
+-	0x0404fbfb,
+-	0xfbfb4040,
+-	0x4040fbfb,
+-	0x2020fdfd,
+-	0xfdfd2020,
+-	0x2020fdfd,
+-	0x1010efef,
+-	0xfefe0101,
+-	0x10108080,
+-	0x80800101,
+-	0x7f7f8080,
+-	0x80807f7f,
+-	0x4040bfbf,
+-	0xbfbf4040,
+-	0x40402020,
+-	0x20204040,
+-	0xdfdf2020,
+-	0x2020dfdf,
+-	0x1010efef,
+-	0xefef1010,
+-	0xffff0000,
+-	0x0000ffff,
+-	0xffff0000,
++	0x5555aaaa,
++	0xaaaa5555,
+ 	0x0000ffff,
+-	0xffff0000,
+-	0x0000ffff,
+-	0xffff0000,
++	0xf0f0f0f0,
++	0x0f0f0f0f,
++	0xf0f0f0f0,
++	0x0f0f0f0f,
++	0xabadbeef,
++	0xbeefabad,
++	0x0000000f,
++	0x000000f0,
++	0x00000f00,
++	0x0000f000,
++	0x000f0000,
++	0x00f00000,
++	0x0f000000,
++	0xf0000000,
++	0x0000000f,
++	0x55555555,
++	0xaaaaaaaa,
+ 	0x00000000,
++	0xffffffff,
+ 	0x00000000,
+-	0xffff0000,
+-	0x0000ffff,
+-	0xffff0000,
+-	0x0000ffff,
+-	0xffff0000,
+-	0x0000ffff,
+-	0xffff0000
++	0xffffffff,
++	0x00000000,
++	0x807D5E19,
++	0xA52D0F2D,
++	0xB68A62AF,
++	0x44F4BF0C,
++	0x0
+ };
+ 
+-static int static_pattern(unsigned int wdata, unsigned int start,
+-			  unsigned int end, u32 byte_mask)
++static int static_pattern(unsigned int wdata, unsigned int start, unsigned int end)
+ {
+ 	volatile unsigned int *l_waddr;
+ 	unsigned int l_rdata;
+ 
+-	for (l_waddr = (volatile unsigned int *)start;
++	for (l_waddr = (volatile unsigned int *)start; 
+ 		 l_waddr < (volatile unsigned int *)end;
+ 		 l_waddr++) {
+ 		*l_waddr = wdata;// write data in
+ 		l_rdata = *l_waddr;// read data back
+ 
+-		if (BYTE_ERROR(l_rdata, wdata, byte_mask))
++		if (l_rdata != wdata)
+ 			return 1;
+ 	}
+ 
+ 	return 0;
+ }
+ 
+-static int walking1_pattern(unsigned int start, unsigned int end, u32 byte_mask)
++static int walking1_pattern(unsigned int start,unsigned int end)
+ {
+ 	volatile unsigned int *waddr;// a pointer to a short( 16 bit)
+ 	unsigned int wdata, rdata;
+@@ -169,7 +116,7 @@ static int walking1_pattern(unsigned int start, unsigned int end, u32 byte_mask)
+ 			*waddr = wdata;// write data in
+ 			rdata = *waddr;// read data back
+ 
+-			if (BYTE_ERROR(wdata, rdata, byte_mask))
++			if ( wdata != rdata)
+ 				return 1;
+ 		}
+ 	}
+@@ -177,7 +124,7 @@ static int walking1_pattern(unsigned int start, unsigned int end, u32 byte_mask)
+ 	return 0;
+ }
+ 
+-static int ddr_wr_test(unsigned int start, unsigned int size, u32 byte_mask)
++static int DDR_WR_Test(unsigned int start, unsigned int size)
+ {
+ 	unsigned int end;
+ 	int i;
+@@ -185,14 +132,14 @@ static int ddr_wr_test(unsigned int start, unsigned int size, u32 byte_mask)
+ 	end = start + size;
+ 
+ 	for (i = 0; i < sizeof(tune_patterns) / sizeof(tune_patterns[0]); i++) {
+-		if (static_pattern(tune_patterns[i], start, end, byte_mask))
++		if (static_pattern(tune_patterns[i], start, end))
+ 			return 1;
+ 	}
+ 
+-	if (walking1_pattern(start, end, byte_mask))
++	if (walking1_pattern(start, end))
+ 		return 1;
+ 
+-	return 0; /* pass */
++	return 0;	//pass
+ }
+ 
+ void reset_dll_phy(void)
+@@ -212,155 +159,197 @@ void reset_dll_phy(void)
+ 	wait_ns(640);                   		//delay(512nCK);Assuming 800MHz CPU frequency
+ }
+ 
+-static bool mpr_read_test(unsigned int start, unsigned int ddr_size,
+-				  u32 byte_mask)
++static void set_DLL(unsigned short dll_phsel, unsigned short dll_phsel1)
+ {
+-	volatile unsigned int *l_waddr;
+-	unsigned int l_rdata, l_pattern_ddr4;
++	replace_val((PHY_DLL_CONTROL_BASE + 0), dll_phsel, 16, 0x003F0000);
++	replace_val((PHY_DLL_CONTROL_BASE + 0), dll_phsel1, 24, 0x3F000000);
+ 
+-	l_pattern_ddr4 = 0xFFFF0000;
++	replace_val((PHY_DLL_CONTROL_BASE + 4), dll_phsel, 16, 0x003F0000);
++	replace_val((PHY_DLL_CONTROL_BASE + 4), dll_phsel1, 24, 0x3F000000);
+ 
+-	for (l_waddr = (volatile unsigned int *)start;
+-	     l_waddr < (volatile unsigned int *)(start + ddr_size);
+-	     l_waddr++) {
+-		l_rdata = *l_waddr;
++	replace_val((PHY_DLL_CONTROL_BASE + 8), dll_phsel, 16, 0x003F0000);
++	replace_val((PHY_DLL_CONTROL_BASE + 8), dll_phsel1, 24, 0x3F000000);
+ 
+-		if (BYTE_ERROR(l_rdata, l_pattern_ddr4, byte_mask))
+-			return 1; /* 1 => fail */
+-	}
+-	return 0;
++	replace_val((PHY_DLL_CONTROL_BASE + 12), dll_phsel, 16, 0x003F0000);
++	replace_val((PHY_DLL_CONTROL_BASE + 12), dll_phsel1, 24, 0x3F000000);
++
++	reset_dll_phy();
++}
++
++static void set_dll_phsel(unsigned short offset, unsigned short bit_offset, unsigned int value)
++{
++	replace_val((PHY_DLL_CONTROL_BASE + offset), value, bit_offset, (0x3F << bit_offset));
++	reset_dll_phy();
+ }
+-/* Check correctness of ddr read/write for all dll values.
+- * Returns the working dll range.
+- */
+-bool short_dll_tune(unsigned int ratio,
+-			    unsigned int mpr_en,
+-			    const struct ddr_init_para *params,
+-			    unsigned int num_of_cs,
+-			    struct dll_tuning_info *ret, u32 dll_type,
+-			    u32 mask, u32 ctrl_addrs)
++
++unsigned short DLL_fine_tune(unsigned int ratio, struct ddr_init_para init_para, unsigned int num_of_cs, unsigned short medium[])
+ {
+-	unsigned short left, right, i;
+-	unsigned short medium;
+-	unsigned int regval, res;
+-	u32 beckup = ll_read32(ctrl_addrs);
++	unsigned short offset[] = {0, 0, 4, 4, 36, 36};  //GT
++	unsigned short bit_offset[] = {16, 24, 16, 24, 16, 24}; //GT
++	unsigned short left[MAX_CS_NUM], right[MAX_CS_NUM], m[MAX_CS_NUM], i;
++	unsigned short l,r,med;
++	unsigned int regval;
++	unsigned int cs;
+ 
+ 	ll_write32(PHY_CONTROL_9, 0x0);
+ 
+-	/* Automatically update PHY DLL with interval time
+-	 * set in Dll_auto_update_interval ([15:8] of
+-	 * PHY Control Register 13, Offset 0x248)
+-	 */
++	//Automatically update PHY DLL with interval time set in Dll_auto_update_interval ([15:8] of PHY Control Register 13, Offset 0x248)
+ 	regval = ll_read32(PHY_CONTROL_8);
+ 
+-	/* turn off Dll_auto_manual_update & Dll_auto_update_en
+-	 * DLL_auto_update_en has a known bug. Don't use.
+-	 */
++	//turn off Dll_auto_manual_update & Dll_auto_update_en
++	// DLL_auto_update_en has a known bug. Don't use.
+ 	regval &= ~0xC;
+-	/* change Dll_reset_timer to 128*32 cycles */
++	// change Dll_reset_timer to 128*32 cycles
+ 	regval |= 0x80000000;
+-	ll_write32(PHY_CONTROL_8, regval);  /* Write R41C */
++	ll_write32(PHY_CONTROL_8, regval);  // Write R41C
+ 
+-	LogMsg(LOG_LEVEL_DEBUG,
+-	       FLAG_REGS_DLL_TUNE,
+-	       "Increment dll_phsel by 1 and find the passing window");
+-	/* enable mpr mode */
++	LogMsg(LOG_LEVEL_DEBUG, FLAG_REGS_DLL_TUNE, "\n\nPerform fine DLL tuning:");
++	for(i=0; i<sizeof(offset)/sizeof(offset[0]); ++i)
++	{
++		LogMsg(LOG_LEVEL_DEBUG, FLAG_REGS_DLL_TUNE, "\n\n\tDLL 0x%8x[%2d:%2d]: [l, r, m]", PHY_DLL_CONTROL_BASE+offset[i], bit_offset[i]+5, bit_offset[i]);
++		for(cs=0; cs<num_of_cs; cs++)
++		{
++			left[cs] = medium[cs];
++			right[cs] = medium[cs];
++			do{
++				if(left[cs]>DLL_PHSEL_START)
++					left[cs]-=DLL_PHSEL_STEP;
++				set_dll_phsel(offset[i], bit_offset[i], left[cs]);
++			}while(!DDR_WR_Test(init_para.cs_wins[cs].base, 100*2) && left[cs]>DLL_PHSEL_START);
++
++			do{
++				if(right[cs]<DLL_PHSEL_END)
++					right[cs]+=DLL_PHSEL_STEP;
++				set_dll_phsel(offset[i],  bit_offset[i], right[cs]);
++			}while(!DDR_WR_Test(init_para.cs_wins[cs].base, 100*2) && right[cs]<DLL_PHSEL_END);
++
++			m[cs] = left[cs] + (right[cs] -left[cs])/ratio;
++			LogMsg(LOG_LEVEL_DEBUG, FLAG_REGS_DLL_TUNE, "\n\t\tCS%d: [%x, %x, %x]",cs, left[cs], right[cs],m[cs]);
++			set_dll_phsel(offset[i], bit_offset[i], m[cs]);
++		}
++
++		//pick the window common to all CS, if none exists default to CS0
++		LogMsg(LOG_LEVEL_DEBUG, FLAG_REGS_DLL_TUNE, "\n\tPick the window common to all CS, if none exists default to CS0");
++		l=left[0]; r=right[0];
++		for(cs=1;cs<num_of_cs; cs++)
++		{
++			if( (left[cs] > l) && (left[cs] < r) )
++				l = left[cs];
++			if( (right[cs] < r) && (right[cs] > l) )
++				r = right[cs];
++		}
++
++		med = l + (r - l)/ratio;
++		LogMsg(LOG_LEVEL_DEBUG, FLAG_REGS_DLL_TUNE, "\n\tDLL 0x%8x[%2d:%2d]: [%x,%x,%x]",
++				PHY_DLL_CONTROL_BASE+offset[i], bit_offset[i]+5, bit_offset[i], l, r, med);
++		set_dll_phsel(offset[i], bit_offset[i], med);
++	}
++	return 1;	//DLL passed
++}
++
++static unsigned int mpr_read_Test(unsigned int start, unsigned int ddr_size)
++{
++        volatile unsigned int *l_waddr;
++        unsigned int l_rdata, l_pattern_ddr4;
++
++        l_pattern_ddr4 = (unsigned int)0xFFFF0000;
++
++        for (l_waddr = (volatile unsigned int*)start; l_waddr < (volatile unsigned int*)(start + ddr_size); l_waddr++)
++        {
++                l_rdata = *l_waddr;
++
++                //printf("\nRead data 0x%08X : 0x%08x Pattern: 0x%08x", l_waddr, l_rdata, l_pattern_ddr4);
++                if (l_rdata != l_pattern_ddr4)
++                {
++                        return 1;               //1 => fail
++                }
++        }
++        return 0;
++}
++
++unsigned int short_DLL_tune(unsigned int ratio, unsigned int cs, unsigned int cs_base, unsigned int mpr_en, unsigned short *ret_m)
++{
++        unsigned short left, right, i;
++        unsigned short medium;
++        unsigned int regval, res;
++
++	ll_write32(PHY_CONTROL_9, 0x0);
++
++	//Automatically update PHY DLL with interval time set in Dll_auto_update_interval ([15:8] of PHY Control Register 13, Offset 0x248)
++        regval = ll_read32(PHY_CONTROL_8);
++
++        //turn off Dll_auto_manual_update & Dll_auto_update_en
++        // DLL_auto_update_en has a known bug. Don't use.
++        regval &= ~0xC;
++        // change Dll_reset_timer to 128*32 cycles
++        regval |= 0x80000000;
++        ll_write32(PHY_CONTROL_8, regval);  // Write R41C
++
++	LogMsg(LOG_LEVEL_DEBUG, FLAG_REGS_DLL_TUNE, "\n\tCS%d: Increment dll_phsel0 and dll_phsel1 equally by 1 and find the passing window", cs);
++	//enable mpr mode
+ 	if(mpr_en)
+ 	{
+ 		ll_write32(CH0_DRAM_Config_3, (ll_read32(CH0_DRAM_Config_3) | 0x00000040));
+ 		ll_write32(USER_COMMAND_2, 0x13000800);
+ 	}
+-	left = DLL_PHSEL_END;
+-	right = DLL_PHSEL_START;
+-
+-	for (i = DLL_PHSEL_START; i <= DLL_PHSEL_END; ++i) {
+-		int cs;
+-
+-		replace_val(ctrl_addrs, i,
+-			     dll_type, DLL_TYPE_MASK(dll_type));
+-		reset_dll_phy();
+-		wait_ns(100);
+-
+-		res = 0;
+-		for (cs = 0; cs < num_of_cs; ++cs) {
+-			if (mpr_en)
+-				res |= mpr_read_test(params->cs_wins[cs].base,
+-						     100*2, mask);
+-			else
+-				res |= ddr_wr_test(params->cs_wins[cs].base,
+-						   32, mask);
+-		}
+-
+-		if (!res) { /* pass */
++        left = DLL_PHSEL_END;
++        right = DLL_PHSEL_START;
++        for(i=DLL_PHSEL_START; i<=DLL_PHSEL_END; ++i){
++                set_DLL(i, i);
++                wait_ns(100);
++		if(mpr_en)
++			res = mpr_read_Test(cs_base, 100*2);
++		else
++			res = DDR_WR_Test(cs_base, 32);
++
++		if(!res) {	//PASS
+ 			if( i<left) left = i;
+ 			if( i>right) right = i;
+ 			LogMsg(LOG_LEVEL_DEBUG, FLAG_REGS_DLL_TUNE, "\n\t\tdll_phsel_0 = dll_phsel_1 = 0x%02X left = 0x%02X, right = 0x%02X", i, left, right);
+ 		}
+ 	}
+-	ll_write32(ctrl_addrs, beckup);
+-	reset_dll_phy();
+-	if (left > right) {
+-		LogMsg(LOG_LEVEL_DEBUG, FLAG_REGS_DLL_TUNE,
+-		       "\n\t\tNo passing window");
+-		return 0;
+-	}
+-	medium = left + ((right-left)/ratio);
+-	LogMsg(LOG_LEVEL_DEBUG, FLAG_REGS_DLL_TUNE,
+-	       "\n\t\tPassing window: 0x%02X-0x%02X \t\tMedium = 0x%02X",
+-	       left, right, medium);
+-	ret->left = left;
+-	ret->right = right;
+-	ret->medium = medium;
+-
+-	/* disable mpr mode */
+-	if (mpr_en)
++	if(left>right){
++                LogMsg(LOG_LEVEL_DEBUG, FLAG_REGS_DLL_TUNE, "\n\t\tNo passing window");
++                return 0;
++        }else{
++                medium = left + ((right-left)/ratio);
++                set_DLL(medium, medium);
++		LogMsg(LOG_LEVEL_DEBUG, FLAG_REGS_DLL_TUNE, "\n\t\tCS%d: Passing window: 0x%02X-0x%02X \t\tMedium = 0x%02X", cs, left, right, medium);
++        }
++	*ret_m = medium;
++
++	//disable mpr mode
++	if(mpr_en)
+ 	{
+ 		ll_write32(CH0_DRAM_Config_3, (ll_read32(CH0_DRAM_Config_3) & (~0x00000040)));
+ 		ll_write32(USER_COMMAND_2, 0x13000800);
+ 	}
+-	return 1;
++
++        return 1;
+ }
+ 
+-/* function will return the dll range for that verf.
+- * range <=0 means range is zero length
+- */
+-int dll_tuning(unsigned int ratio, unsigned int num_of_cs,
+-	       const struct ddr_init_para *init_para, bool mpr_mode,
+-	       bool save_res)
++unsigned int DLL_tuning(unsigned int ratio, unsigned int num_of_cs, struct ddr_init_para init_para, unsigned int short_DLL, unsigned int mpr_mode)
+ {
+-	unsigned int i;
+-	/* size start at max dll range */
+-	int size = DLL_PHSEL_END - DLL_PHSEL_START;
+-	unsigned short byte[] = {0, 0, 1, 1};
+-	u32 dll_type[] = {DLL_MASTER, DLL_NEG, DLL_MASTER, DLL_NEG};
+-	const int loop_size = (sizeof(dll_type) / sizeof(dll_type[0]));
+-	u32 med[loop_size];
+-	struct dll_tuning_info dll_info;
+-
+-	LogMsg(LOG_LEVEL_DEBUG, FLAG_REGS_DLL_TUNE,
+-	       "\nPerform coarse DLL tuning:");
+-
+-	for (i = 0; i < loop_size; ++i) {
+-		int current_size;
+-
+-		if (!short_dll_tune(ratio, mpr_mode, init_para, num_of_cs,
+-				    &dll_info, dll_type[i], BYTE_MASK(byte[i]),
+-				     BYTE_CONTROL(byte[i])))
+-			return 0;
+-		current_size = dll_info.right - dll_info.left;
+-		/* select minimum size of each byte0/1
+-		 * and dll master/neg variation
+-		 */
+-		med[i] = dll_info.medium;
+-		if (current_size < size)
+-			size = current_size;
++	unsigned int cs = 0, res = 1;
++	unsigned short optimal[MAX_CS_NUM], medium[MAX_CS_NUM];
++
++	LogMsg(LOG_LEVEL_DEBUG, FLAG_REGS_DLL_TUNE, "\nPerform coarse DLL tuning:");
++	for (cs=0; cs<num_of_cs; cs++)
++	{
++		optimal[cs] = short_DLL_tune(ratio, cs, init_para.cs_wins[cs].base, mpr_mode, &medium[cs]);
++		res &= optimal[cs];
+ 	}
+-	if (save_res) {
+-		for (i = 0; i < loop_size; ++i)
+-			replace_val(BYTE_CONTROL(byte[i]), med[i],
+-			dll_type[i], DLL_TYPE_MASK(dll_type[i]));
+-		reset_dll_phy();
+-		wait_ns(100);
++
++	if(short_DLL)
++		return res;		//DLL tuning P/F for vref trainings
++	else
++	{
++		if(res)
++			DLL_fine_tune(ratio, init_para, num_of_cs, medium);
++		else
++			return 0;	//DLL tuning FAIL
+ 	}
+-	return size;
++
++	return 1;			//DLL tuning PASS
+ }
++
+diff --git a/wtmi/sys_init/ddr/vref_training.c b/wtmi/sys_init/ddr/vref_training.c
+index 030b221..102aa80 100644
+--- a/wtmi/sys_init/ddr/vref_training.c
++++ b/wtmi/sys_init/ddr/vref_training.c
+@@ -34,32 +34,70 @@
+ #include "../sys.h"
+ #include "ddr.h"
+ #include "ddr_support.h"
+-#include <stdbool.h>
+ 
+ int vdac_set(unsigned int vref_range, unsigned int vref_ctrl)   //read vref training
+ {
+         replace_val(PHY_Control_15, vref_ctrl, 24, 0x3F000000);
+         replace_val(PHY_Control_15, vref_range, 30, 0xC0000000);
+         wait_ns(1000);
++
++//      printf("\nPHY CONTROL 15 %x", ll_read32(PHY_Control_15));
+         return 0;
+ }
+ 
+-int vref_read_training(int num_of_cs, struct ddr_init_para init_para)
++unsigned int vref_read_training(int num_of_cs, struct ddr_init_para init_para)
+ {
+-	int dll_range = 0, best_range = 0, best_vref_cnt = -1;
+-	unsigned int vref_cnt;
+-
+-	for (vref_cnt = 0x3f; vref_cnt > 0; vref_cnt--) {
+-		LogMsg(LOG_LEVEL_DEBUG, FLAG_REGS_VREF_READ,
+-		       "\nSet VREF: 0x%02X", vref_cnt);
+-		vdac_set(1, vref_cnt);
+-		dll_range = dll_tuning(2, num_of_cs, &init_para, false, false);
+-		if (dll_range > best_range) {
+-			best_range = dll_range;
+-			best_vref_cnt = vref_cnt;
+-		}
+-	}
+-	return best_vref_cnt;
++	unsigned int result_dll=0;
++        unsigned int vref_cnt=0x0;
++        unsigned int min=0, prev_min=0, max=0, prev_max=0, window_size = 0, prev_window_size=0, window_on=0;
++	unsigned int short_DLL=1;
++
++	LogMsg(LOG_LEVEL_DEBUG, FLAG_REGS_VREF_READ, "\nIncrement vref and perform dll tuning for each vref to find min/max vref setting");
++	for(vref_cnt=0x0; vref_cnt <= 0x3F; vref_cnt++)
++        {
++		LogMsg(LOG_LEVEL_DEBUG, FLAG_REGS_VREF_READ, "\nSet VREF: 0x%02X", vref_cnt);
++                vdac_set(1, vref_cnt);
++		result_dll = DLL_tuning(2, num_of_cs, init_para, short_DLL, 0);			//mpr_mode=disabled, short_DLL method
++                if(result_dll)									//if DLL pass
++                {
++                        if((min == 0) && (window_on ==0))               			//set the left edge first time
++                        {
++                                min = vref_cnt;
++                                max = vref_cnt;
++                                window_size++;
++                                window_on=1;
++                        }
++                        else                                                                    //update right edge for every continuous pass
++                        {
++                                if(window_on == 0)
++                                {
++                                        min = vref_cnt;
++                                        window_on = 1;
++                                }
++                                max = vref_cnt;
++                                window_size++;
++				if(max==0x3F)
++                                        goto LAST_WINDOW;
++                        }
++                }
++                else                                                                            //if DLL failed
++                {
++			LogMsg(LOG_LEVEL_DEBUG, FLAG_REGS_VREF_READ, "\nDLL tuning failed on atleast 1CS for this vref setting");
++                        LAST_WINDOW:
++                        if((window_size >= prev_window_size) || (prev_window_size == 0))
++                        {
++                                prev_max = max; prev_min = min; prev_window_size = window_size; //save old window values to be compared later
++                                max = 0; min = 0; window_size = 0;      			//reset all windows
++                                window_on = 0;
++                        }
++                }
++                LogMsg(LOG_LEVEL_DEBUG, FLAG_REGS_VREF_READ, "\nmin  = 0x%X max = 0x%X window_size = %d\n", min, max, window_size);
++        }
++        LogMsg(LOG_LEVEL_DEBUG, FLAG_REGS_VREF_READ, "\nFinal min  = 0x%X Final max = 0x%X", prev_min, prev_max);
++        if(prev_min!=prev_max)                                                  		//prev values are the correct ones
++                return (((prev_max-prev_min)/2) + prev_min);					//PASS
++        else
++                return 0;									//FAIL
+ }
+ 
+ int vref_set(unsigned int range, unsigned int VREF_training_value_DQ)
+@@ -96,6 +134,7 @@ unsigned int vref_write_training(int num_of_cs, struct ddr_init_para init_para)
+         unsigned int result_dll=0;
+         unsigned int vref_cnt=0x0;
+         unsigned int min=0, prev_min=0, max=0, prev_max=0, window_size = 0, prev_window_size=0, window_on=0;
++	unsigned int short_DLL=1;
+ 
+ 	//enable vref training
+ 	en_dis_write_vref(1);
+@@ -105,9 +144,8 @@ unsigned int vref_write_training(int num_of_cs, struct ddr_init_para init_para)
+         {
+                 LogMsg(LOG_LEVEL_DEBUG, FLAG_REGS_VREF_WRITE, "\nSet VREF: 0x%02X", vref_cnt);
+                 vref_set(1, vref_cnt);
+-		result_dll = dll_tuning(2, num_of_cs, &init_para, false, false);
+-
+-		if (result_dll > 0) /* if DLL pass */
++		result_dll = DLL_tuning(2, num_of_cs, init_para, short_DLL, 0);			//use short_DLL method
++                if(result_dll)                                                                  //if DLL pass
+                 {
+                         if((min == 0) && (window_on ==0))                                       //set the left edge first time
+                         {

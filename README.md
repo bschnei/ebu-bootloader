@@ -7,6 +7,7 @@ This started as a fork of the bootloader build scripts from [Globalscale's repos
 * Upgrade build host from Ubuntu 18.04 to 20.04 (22.04 does not currently produce stable images)
 * Move from Globalscale's mv-ddr-marvell repository to Marvell's
 * Move from Globalscale's ARM Trusted Firmware repo to ARM's and upgrade to v2.10
+* Move from Globalscale's A3700-utils-marvell repo to Marvell's
 
 ## Build Host
 
@@ -16,7 +17,7 @@ __Note__: AFAIK the build process for osboxes images is not open source. If that
 
 Make sure all build dependencies are installed:
 ```
-sudo apt install make binutils build-essential gcc g++ \
+sudo apt install build-essential binutils \
 bash patch gzip bzip2 perl tar cpio zlib1g-dev \
 gawk ccache gettext libssl-dev libncurses5 minicom git \
 bison flex device-tree-compiler gcc-arm-linux-gnueabi
@@ -33,22 +34,25 @@ tar -xvf gcc-linaro-7.3.1-2018.05-x86_64_aarch64-linux-gnu.tar.xz -C toolchain/
 ```
 This toolchain is fairly old and likely a limiting factor in the ability to upgrade the build host OS.
 
-## Download Repositories
-
-__IMPORTANT:__ if you follow the build directions on the manufacturer's page and not the directions below you will encounter errors. In particular you want to use the `-gti` suffixed branches across all of the manufacturer's repos and not just some of them.
+## Download U-Boot Source
 
 ```
-git clone https://github.com/globalscaletechnologies/A3700-utils-marvell.git -b A3700_utils-armada-18.12.0-gti
-git clone https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell
 git clone https://github.com/globalscaletechnologies/u-boot-marvell.git -b u-boot-2018.03-armada-18.12-gti
 ```
-Note that it seems in some cases git is called within the builds for at least two of the above projects. As a result, they need to be git repos and not just pure source code. Source: https://trustedfirmware-a.readthedocs.io/en/latest/plat/marvell/index.html
-
-## Patching A3700 Utils
-Globalscale added support for building "secondary" images in their fork of A3700 utils in the `buildtim.sh` script. That feature is not supported by upstream ARM Trusted Firmware. The `a3700.patch` file has to be applied to Globalscale's A3700-utils repo to remove that feature and allow builds to complete without error. This is not necessary for Marvell's A3700-utils repo.
 
 ## Patching mv-ddr-marvell
-Globalscale's A3700 utils does not use the `ddr_static.txt` file produced by the executable built by the mv-ddr-marvell repo. The difference introduced by [this commit](https://github.com/MarvellEmbeddedProcessors/A3700-utils-marvell/commit/feced21c4c343428eab2f99cc9c78028bb961690) is important for stability. So if we want to use Marvell's A3700-utils and mv-ddr-marvell repos we can patch mv-ddr-marvell so that the `ddr_static.txt` file produced is identical to the [one Globalscale saved in their repo](https://github.com/globalscaletechnologies/A3700-utils-marvell/blob/A3700_utils-armada-18.12.0-gti/tim/ddr/espressobin-ddr4-1cs-1g.txt). Apply the `mv-ddr.patch` to the mv-ddr-marvell repo to patch.
+The mv-ddr-marvell repo is used by the A3700-utils-marvell repo to make the `a3700_tool` target which is an executable. The executable gets copied (and renamed) to `A3700-utils-marvell/tim/ddr/ddr_tool` before being run by `A3700-utils-marvell/scripts/buildtim.sh`. The program generates the `ddr_static.txt` file in `A3700-utils-marvell/tim/ddr`. The contents of the file then get inserted by the `buildtim.sh` script into the `atf-ntim.txt` file used by ATF-A to build the firmware image. The `ddr_static.txt` file contains instructions used to initialize memory.
+
+Globalscale's repos produce a `ddr_static.txt` file that differs from Marvell's in two places. The fist difference seems to concern [setting the DDRPHY drive strength](https://github.com/globalscaletechnologies/A3700-utils-marvell/commit/feced21c4c343428eab2f99cc9c78028bb961690) and is __critical__ for system stability. The [second difference](https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell/commit/4208ad5f2d1cee6125d3047ea1aac90a051e3d16) doesn't seem to impact system stability, but more testing is needed.
+
+To produce a `ddr_static.txt` file that matches Globalscale's: `git apply mv-ddr.patch --directory mv-ddr-marvell`
+
+## Patching A3700-utils-marvell (Optional)
+DDR initialization is considerably slower in Marvell's A3700-utils-repo than in Globalscale's. This is related to five consecutive commits whose message is tagged with ddr_init that were committed May 21, 2019 between versions 18.2.0 and 18.2.1, the first of which is [here](https://github.com/MarvellEmbeddedProcessors/A3700-utils-marvell/commit/4d785e3ec35daf77d85c0f26e91388afcca0d478). Using copies of the `sys_init/ddr` files prior to those changes resolves the issue.
+
+The commit messages in Marvell's repos suggest the ddr_init changes were made were for stability reasons. I have not experienced any issues and have been using the faster code on my device for months.
+
+To restore the ddr_init code that boots quickly: `git apply ddr_init.patch --directory A3700-utils-marvell`
 
 ## Patching U-Boot
 U-Boot will fail to compile on newer GCC compilers unless patched. If that happens, see [here](https://github.com/BPI-SINOVOIP/BPI-M4-bsp/issues/4#issuecomment-1296184876) for a fix.

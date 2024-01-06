@@ -40,12 +40,12 @@ This toolchain is fairly old and likely a limiting factor in the ability to upgr
 git clone https://github.com/globalscaletechnologies/u-boot-marvell.git -b u-boot-2018.03-armada-18.12-gti
 ```
 
-## Patching mv-ddr-marvell
+## mv-ddr-marvell notes
 The mv-ddr-marvell repo is used by the A3700-utils-marvell repo to make the `a3700_tool` target which is an executable. The executable gets copied (and renamed) to `A3700-utils-marvell/tim/ddr/ddr_tool` before being run by `A3700-utils-marvell/scripts/buildtim.sh`. The program generates the `ddr_static.txt` file in `A3700-utils-marvell/tim/ddr`. The contents of the file then get inserted by the `buildtim.sh` script into the `atf-ntim.txt` file used by ATF-A to build the firmware image. The `ddr_static.txt` file contains instructions used to initialize memory.
 
-Globalscale's repos produce a `ddr_static.txt` file that differs from Marvell's in two places. The fist difference seems to concern [setting the DDRPHY drive strength](https://github.com/globalscaletechnologies/A3700-utils-marvell/commit/feced21c4c343428eab2f99cc9c78028bb961690) and is __critical__ for system stability. The [second difference](https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell/commit/4208ad5f2d1cee6125d3047ea1aac90a051e3d16) doesn't seem to impact system stability, but more testing is needed.
+Globalscale's repos produce a `ddr_static.txt` file that differs from Marvell's in two places. The fist difference seems to concern [setting the DDR PHY drive strength](https://github.com/globalscaletechnologies/A3700-utils-marvell/commit/feced21c4c343428eab2f99cc9c78028bb961690) and is __critical__ for system stability. The [second difference](https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell/commit/4208ad5f2d1cee6125d3047ea1aac90a051e3d16) doesn't seem to impact system stability.
 
-To produce a `ddr_static.txt` file that matches Globalscale's: `git apply mv-ddr.patch --directory=mv-ddr-marvell`
+The mv-ddr-marvell submodule in this repo uses [my fork](https://github.com/bschnei/mv-ddr-marvell) of the repository which patches the first difference, but not the second. I opened a [PR](https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell/pull/43) upstream for this change.
 
 ## Patching A3700-utils-marvell (Optional)
 DDR initialization is considerably slower in Marvell's A3700-utils-repo than in Globalscale's. This is related to five consecutive commits whose message is tagged with ddr_init that were committed May 21, 2019 between versions 18.2.0 and 18.2.1, the first of which is [here](https://github.com/MarvellEmbeddedProcessors/A3700-utils-marvell/commit/4d785e3ec35daf77d85c0f26e91388afcca0d478). Using copies of the `sys_init/ddr` files prior to those changes resolves the issue.

@@ -45,14 +45,14 @@ The mv-ddr-marvell repo is used by the A3700-utils-marvell repo to make the `a37
 
 Globalscale's repos produce a `ddr_static.txt` file that differs from Marvell's in two places. The fist difference seems to concern [setting the DDRPHY drive strength](https://github.com/globalscaletechnologies/A3700-utils-marvell/commit/feced21c4c343428eab2f99cc9c78028bb961690) and is __critical__ for system stability. The [second difference](https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell/commit/4208ad5f2d1cee6125d3047ea1aac90a051e3d16) doesn't seem to impact system stability, but more testing is needed.
 
-To produce a `ddr_static.txt` file that matches Globalscale's: `git apply mv-ddr.patch --directory mv-ddr-marvell`
+To produce a `ddr_static.txt` file that matches Globalscale's: `git apply mv-ddr.patch --directory=mv-ddr-marvell`
 
 ## Patching A3700-utils-marvell (Optional)
 DDR initialization is considerably slower in Marvell's A3700-utils-repo than in Globalscale's. This is related to five consecutive commits whose message is tagged with ddr_init that were committed May 21, 2019 between versions 18.2.0 and 18.2.1, the first of which is [here](https://github.com/MarvellEmbeddedProcessors/A3700-utils-marvell/commit/4d785e3ec35daf77d85c0f26e91388afcca0d478). Using copies of the `sys_init/ddr` files prior to those changes resolves the issue.
 
 The commit messages in Marvell's repos suggest the ddr_init changes were made were for stability reasons. I have not experienced any issues and have been using the faster code on my device for months.
 
-To restore the ddr_init code that boots quickly: `git apply ddr_init.patch --directory A3700-utils-marvell`
+To restore the ddr_init code that boots quickly: `git apply ddr_init.patch --directory=A3700-utils-marvell`
 
 ## Patching U-Boot
 U-Boot will fail to compile on newer GCC compilers unless patched. If that happens, see [here](https://github.com/BPI-SINOVOIP/BPI-M4-bsp/issues/4#issuecomment-1296184876) for a fix.

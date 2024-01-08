@@ -10,3 +10,6 @@
 [submodule "mv-ddr-marvell"]
 	path = mv-ddr-marvell
 	url = https://github.com/bschnei/mv-ddr-marvell.git
+[submodule "mox-boot-builder"]
+	path = mox-boot-builder
+	url = https://gitlab.nic.cz/turris/mox-boot-builder.git

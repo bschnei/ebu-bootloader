@@ -23,6 +23,10 @@ function build_bootloader {
     # build u-boot.bin
     make -C "$uboot" DEVICE_TREE=armada-3720-ccpe
 
+    # build WTMI
+    local mbb=${ROOT_DIR}/mox-boot-builder
+    make -C "$mbb" CROSS_CM3=arm-linux-gnueabi- clean wtmi_app.bin
+
     # see README
     local cpu_speed=1000
 
@@ -45,7 +49,6 @@ function build_bootloader {
     make -C "$atf" distclean
     make -C "$atf" \
             PLAT=a3700 \
-            DEBUG=0 \
             USE_COHERENT_MEM=0 \
             MV_DDR_PATH="$ROOT_DIR"/mv-ddr-marvell \
             DDR_TOPOLOGY=5 \
@@ -53,10 +56,11 @@ function build_bootloader {
             WTP=${a3700_utils} \
             CRYPTOPP_PATH="$ROOT_DIR"/cryptopp \
             BL33=${uboot}/u-boot.bin \
+            WTMI_IMG=${mbb}/wtmi_app.bin \
             mrvl_flash
 
     if [ ! -f "$atf/build/a3700/release/flash-image.bin" ]; then
-        echo "Failed to build FIP!"
+        echo "Build failed!"
         return 0
     fi
 

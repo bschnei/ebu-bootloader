@@ -13,3 +13,6 @@
 [submodule "mox-boot-builder"]
 	path = mox-boot-builder
 	url = https://gitlab.nic.cz/turris/mox-boot-builder.git
+[submodule "u-boot"]
+	path = u-boot
+	url = https://source.denx.de/u-boot/u-boot.git

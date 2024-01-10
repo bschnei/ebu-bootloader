@@ -7,25 +7,28 @@ export ARCH=arm64
 export CROSS_COMPILE=${ROOT_DIR}/toolchain/gcc-linaro-7.3.1-2018.05-x86_64_aarch64-linux-gnu/bin/aarch64-linux-gnu-
 
 # Marvell's default assumption lines up with Ubuntu's package name for the
-# 32-bit compiler. Set explicitly or modify as needed.
+# 32-bit ARM compiler. Set explicitly or modify as needed.
 #export CROSS_CM3=/usr/bin/arm-linux-gnueabi-
 
 function build_bootloader {
 
-    # path to U-Boot source code
-    local uboot=${ROOT_DIR}/u-boot-marvell
+    ### BUILD U-BOOT ###
+    local u_boot=${ROOT_DIR}/u-boot
+    make -C ${u_boot} mrproper
 
-    make -C "$uboot" distclean
+    # add custom device tree source
+    cp armada-3720-espressobin-ultra.dts ${u_boot}/arch/arm/dts/
 
-    # build configuration
-    make -C "$uboot" gti_ccpe-88f3720_defconfig
+    # add custom device default config file
+    cp mvebu_espressobin_ultra-88f3720_defconfig ${u_boot}/configs/
 
-    # build u-boot.bin
-    make -C "$uboot" DEVICE_TREE=armada-3720-ccpe
+    # build full .config and then the BL33 image
+    make -C ${u_boot} mvebu_espressobin_ultra-88f3720_defconfig
+    make -C ${u_boot} u-boot.bin
 
-    # build WTMI
+    # build CZ.NIC's WTMI application
     local mbb=${ROOT_DIR}/mox-boot-builder
-    make -C "$mbb" CROSS_CM3=arm-linux-gnueabi- clean wtmi_app.bin
+    make -C ${mbb} CROSS_CM3=arm-linux-gnueabi- clean wtmi_app.bin
 
     # see README
     local cpu_speed=1000
@@ -39,15 +42,16 @@ function build_bootloader {
     # path to A3700 git repo (must be a git repo)
     local a3700_utils=${ROOT_DIR}/A3700-utils-marvell
 
-    # path to ARM Trusted Firmware repo
-    local atf=${ROOT_DIR}/trusted-firmware-a
-
     # clean a3700-utils image to prevent using old ddr image
-    make -C "$a3700_utils" clean DDR_TOPOLOGY=5
+    # (not sure this is necessary)
+    make -C ${a3700_utils} clean DDR_TOPOLOGY=5
 
-    # clean the source tree and build
-    make -C "$atf" distclean
-    make -C "$atf" \
+    # path to ARM's Trusted Firmware-A repo
+    local tfa=${ROOT_DIR}/trusted-firmware-a
+
+    # delete all build contents and rebuild
+    make -C "$tfa" distclean
+    make -C "$tfa" \
             PLAT=a3700 \
             USE_COHERENT_MEM=0 \
             MV_DDR_PATH="$ROOT_DIR"/mv-ddr-marvell \
@@ -55,11 +59,11 @@ function build_bootloader {
             CLOCKSPRESET=CPU_${cpu_speed}_DDR_${ddr_speed} \
             WTP=${a3700_utils} \
             CRYPTOPP_PATH="$ROOT_DIR"/cryptopp \
-            BL33=${uboot}/u-boot.bin \
+            BL33=${u_boot}/u-boot.bin \
             WTMI_IMG=${mbb}/wtmi_app.bin \
             mrvl_flash
 
-    if [ ! -f "$atf/build/a3700/release/flash-image.bin" ]; then
+    if [ ! -f "$tfa/build/a3700/release/flash-image.bin" ]; then
         echo "Build failed!"
         return 0
     fi
@@ -70,8 +74,8 @@ function build_bootloader {
     mkdir -p "$build_path"
 
     # copy image to output folder
-    cp "$atf/build/a3700/release/flash-image.bin" "$build_path/$(date +"%Y%m%d-%H%M").bin"
-    cp "$atf/build/a3700/release/flash-image.bin" "$build_path/latest.bin"
+    cp "$tfa/build/a3700/release/flash-image.bin" "$build_path/$(date +"%Y%m%d-%H%M").bin"
+    cp "$tfa/build/a3700/release/flash-image.bin" "$build_path/latest.bin"
     sync
 
 }

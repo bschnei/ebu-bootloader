@@ -6,8 +6,9 @@ This started as a fork of the bootloader build scripts from [Globalscale's repos
 
 * Upgrade build host from Ubuntu 18.04 to 20.04 (22.04 does not currently produce stable images)
 * Move from Globalscale's mv-ddr-marvell repository to Marvell's
-* Move from Globalscale's ARM Trusted Firmware repo to ARM's and upgrade to v2.10
+* Move from Globalscale's old ARM Trusted Firmware fork to ARM's and upgrade to v2.10
 * Move from Globalscale's A3700-utils-marvell repo to Marvell's
+* Move from Globalscale's old u-boot fork to upstream and upgrade
 
 ## Build Host
 
@@ -34,12 +35,6 @@ tar -xvf gcc-linaro-7.3.1-2018.05-x86_64_aarch64-linux-gnu.tar.xz -C toolchain/
 ```
 This toolchain is fairly old and likely a limiting factor in the ability to upgrade the build host OS.
 
-## Download U-Boot Source
-
-```
-git clone https://github.com/globalscaletechnologies/u-boot-marvell.git -b u-boot-2018.03-armada-18.12-gti
-```
-
 ## mv-ddr-marvell notes
 The mv-ddr-marvell repo is used by the A3700-utils-marvell repo to make the `a3700_tool` target which is an executable. The executable gets copied (and renamed) to `A3700-utils-marvell/tim/ddr/ddr_tool` before being run by `A3700-utils-marvell/scripts/buildtim.sh`. The program generates the `ddr_static.txt` file in `A3700-utils-marvell/tim/ddr`. The contents of the file then get inserted by the `buildtim.sh` script into the `atf-ntim.txt` file used by ATF-A to build the firmware image. The `ddr_static.txt` file contains instructions used to initialize memory.
 
@@ -54,18 +49,13 @@ The commit messages in Marvell's repos suggest the ddr_init changes were made we
 
 To restore the ddr_init code that boots quickly: `git apply ddr_init.patch --directory=A3700-utils-marvell`
 
-## Patching U-Boot
-U-Boot will fail to compile on newer GCC compilers unless patched. If that happens, see [here](https://github.com/BPI-SINOVOIP/BPI-M4-bsp/issues/4#issuecomment-1296184876) for a fix.
-
 ## Configuring CPU Clock Speed
 
-In the `build_bootloader()` function, there is a `cpu_speed` variable. This variable is the CPU clock speed in MHz and can take the integer values 800, 1000, or 1200. While the ESPRESSObin Ultra has mixed advertising claiming speeds either up to 1 or 1.2Ghz,the [Armbian forums](https://www.armbian.com/espressobin/) suggest a 1.2Ghz clock speed is the source of stability problems in ESPRESSObin V7s. It's unclear if this is also a problem for the ESPRESSObin Ultra (seems likely), nor whether it is a problem that needs to be resolved in firmware.
+In the `build_bootloader()` function, there is a `cpu_speed` variable. This variable is the CPU clock speed in MHz and can take the integer values 800, 1000, or 1200. While the ESPRESSObin Ultra has mixed advertising claiming speeds either up to 1 or 1.2Ghz, [Linux has explicitly disabled 1.2Ghz](https://github.com/torvalds/linux/commit/484f2b7c61b9ae58cc00c5127bcbcd9177af8dfe) as a speed for this device. I believe if a 1.2Ghz clock speed is set by the firmware, Linux will display a kernel error on boot and scale the speed down to 1Ghz for stability.
 
-The [Linux kernel has explicitly disabled 1.2Ghz](https://github.com/torvalds/linux/blob/master/drivers/cpufreq/armada-37xx-cpufreq.c#L106-L109) as a speed for this device, and the max speed they seem to allow via dynamic power management is 1GHz.
+A significant contributor to both kernel and A3700 firmware development believes the firmware is the source of the problem. For a long discussion, see [here](https://github.com/MarvellEmbeddedProcessors/linux-marvell/issues/20).
 
-To make things even more confusing, the factory bootloader image runs at 800MHz, and when Linux boots it does not seem able to scale the clock speed up. Meanwhile build instructions on the manufacturer's website, as well as the repo I forked to start this project, build 1Ghz and 1.2Ghz versions.
-
-In practice 1GHz builds are stable and Linux won't run any faster so 1Ghz is what I use.
+The ability to scale CPU frequency dynamically with Linux is unknown/untested.
 
 ## Building
 ```

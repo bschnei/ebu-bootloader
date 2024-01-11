@@ -1,12 +1,22 @@
-BASE_DIR		:= 	$(shell dirname $(lastword $(MAKEFILE_LIST)))
+# full path to this file
+BASE_DIR := $(dir $(realpath $(lastword $(MAKEFILE_LIST)))).
+
+# make/compiler settings
 CROSS_COMPILE	:= ${BASE_DIR}/toolchain/gcc-linaro-7.3.1-2018.05-x86_64_aarch64-linux-gnu/bin/aarch64-linux-gnu-
 CROSS_CM3		:= arm-linux-gnueabi-
 
-UBOOT_SRC		:= u-boot
-TFA_SRC			:= trusted-firmware-a
-MBB_SRC			:= mox-boot-builder
+# paths to source code
+UBOOT_SRC	:= ${BASE_DIR}/u-boot
+TFA_SRC		:= ${BASE_DIR}/trusted-firmware-a
+MBB_SRC		:= ${BASE_DIR}/mox-boot-builder
 
-${TFA_SRC}/build/a3700/release/flash-image.bin: ${UBOOT_SRC}/u-boot.bin ${MBB_SRC}/wtmi_app.bin FORCE
+all: bubt_image
+
+u-boot: ${UBOOT_SRC}/u-boot.bin
+wtmi_app: ${MBB_SRC}/wtmi_app.bin
+bubt_image: ${TFA_SRC}/build/a3700/release/flash-image.bin
+
+${TFA_SRC}/build/a3700/release/flash-image.bin: u-boot wtmi_app FORCE
 	$(MAKE) -C ${TFA_SRC} \
 		CROSS_COMPILE=${CROSS_COMPILE} \
 		PLAT=a3700 \
@@ -24,8 +34,8 @@ ${MBB_SRC}/wtmi_app.bin: FORCE
 	$(MAKE) -C ${MBB_SRC} CROSS_CM3=${CROSS_CM3} wtmi_app.bin
 
 ${UBOOT_SRC}/u-boot.bin: FORCE
-	$(MAKE) -C ${UBOOT_SRC} CROSS_COMPILE=${CROSS_COMPILE} gti_ccpe-88f3720_defconfig
-	$(MAKE) -C ${UBOOT_SRC} CROSS_COMPILE=${CROSS_COMPILE} DEVICE_TREE=armada-3720-ccpe
+	$(MAKE) -C ${UBOOT_SRC} CROSS_COMPILE=${CROSS_COMPILE} mvebu_espressobin-88f3720_defconfig
+	$(MAKE) -C ${UBOOT_SRC} CROSS_COMPILE=${CROSS_COMPILE}
 
 clean:
 	-$(MAKE) -C ${UBOOT_SRC} clean

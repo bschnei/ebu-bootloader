@@ -42,5 +42,5 @@ clean:
 	-$(MAKE) -C ${MBB_SRC} clean
 	-$(MAKE) -C ${TFA_SRC} distclean
 
-.PHONY: clean FORCE
+.PHONY: u-boot wtmi_app bubt_image clean FORCE
 FORCE:;

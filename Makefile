@@ -34,6 +34,23 @@ ${MBB_SRC}/wtmi_app.bin: FORCE
 	$(MAKE) -C ${MBB_SRC} CROSS_CM3=${CROSS_CM3} wtmi_app.bin
 
 ${UBOOT_SRC}/u-boot.bin: FORCE
+
+	# installing device tree from Linux
+	@cp ${BASE_DIR}/armada-3720-espressobin-ultra.dts ${UBOOT_SRC}/arch/arm/dts/
+
+	# adjust mvebu_espressobin default config for ESPRESSObin Ultra
+	git -C ${UBOOT_SRC} restore configs/mvebu_espressobin-88f3720_defconfig
+
+	# enabling real time clock support
+	@echo "CONFIG_DM_RTC=y" >> ${UBOOT_SRC}/configs/mvebu_espressobin-88f3720_defconfig
+	@echo "CONFIG_RTC_PCF8563=y" >> ${UBOOT_SRC}/configs/mvebu_espressobin-88f3720_defconfig
+
+	# enabling power regulator driver (Globalscale had enabled)
+	@echo "CONFIG_DM_REGULATOR"=y >> ${UBOOT_SRC}/configs/mvebu_espressobin-88f3720_defconfig
+
+	# use ESPRESSObin Ultra specific device tree
+	@sed -i 's|CONFIG_DEFAULT_DEVICE_TREE="armada-3720-espressobin"|CONFIG_DEFAULT_DEVICE_TREE="armada-3720-espressobin-ultra"|1' ${UBOOT_SRC}/configs/mvebu_espressobin-88f3720_defconfig
+
 	$(MAKE) -C ${UBOOT_SRC} CROSS_COMPILE=${CROSS_COMPILE} mvebu_espressobin-88f3720_defconfig
 	$(MAKE) -C ${UBOOT_SRC} CROSS_COMPILE=${CROSS_COMPILE}
 

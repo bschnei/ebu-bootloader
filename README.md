@@ -1,14 +1,17 @@
-# ESPRESSObin Ultra Bootloader Builder
+# ESPRESSObin Ultra Bootloader
 
-This is inspired by the [mox-boot-builder](https://gitlab.nic.cz/turris/mox-boot-builder) project. The [Turris MOX](https://www.turris.com/en/mox/overview/) shares the same Marvell Armada 3720 SoC as the [Globalscale ESPRESSObin Ultra](https://globalscaletechnologies.com/product/espressobin-ultra/).
+The [Globalscale ESPRESSObin Ultra](https://globalscaletechnologies.com/product/espressobin-ultra/) is a network appliance built upon Marvell's Armada 3720 SoC (A3700). The source for its firmware is open, but Globalscale's [build instructions](https://espressobin.net/espressobin-ultra-build-instruction/) and [forks](https://github.com/globalscaletechnologies) have not been kept up-to-date.
 
-This started as a fork of the bootloader build scripts from [Globalscale's repositories](https://github.com/globalscaletechnologies). It heavily references [their build instructions](https://espressobin.net/espressobin-ultra-build-instruction/) and the ARM Trusted Firmware [build instructions](https://trustedfirmware-a.readthedocs.io/en/v2.10/plat/marvell/armada/build.html). Major changes:
+Using OEM firmware, the hardware random number generator is unavailable and CPU frequency scaling is limited to a maximum of 1Ghz instead of the 1.2GHz it's supposed to be capable of supporting.
 
-* Upgrade build host from Ubuntu 18.04 to 20.04 (22.04 does not currently produce stable images)
-* Move from Globalscale's mv-ddr-marvell repository to Marvell's
-* Move from Globalscale's old ARM Trusted Firmware fork to ARM's and upgrade to v2.10
-* Move from Globalscale's A3700-utils-marvell repo to Marvell's
-* Move from Globalscale's old u-boot fork to upstream and upgrade
+An excellent and detailed explanation of the build process this project follows can be found [here](https://trustedfirmware-a.readthedocs.io/en/v2.10/plat/marvell/armada/build.html).
+
+Major changes:
+
+* Upgrade build host from Ubuntu 18.04 to 20.04 (22.04 has not been tested, but was unstable with earlier builds)
+* Move all source code away from old forks to upstream projects
+* Upgrade source projects to latest stable version tag (or apparent equivalent)
+* Add required device tree to u-boot and configure
 
 ## Build Host
 
@@ -40,29 +43,31 @@ The mv-ddr-marvell repo is used by the A3700-utils-marvell repo to make the `a37
 
 Globalscale's repos produce a `ddr_static.txt` file that differs from Marvell's in two places. The first difference seems to concern [setting the DDR PHY drive strength](https://github.com/globalscaletechnologies/A3700-utils-marvell/commit/feced21c4c343428eab2f99cc9c78028bb961690) and is __critical__ for system stability. The [second difference](https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell/commit/4208ad5f2d1cee6125d3047ea1aac90a051e3d16) doesn't seem to impact system stability.
 
-The mv-ddr-marvell submodule in this repo uses [my fork](https://github.com/bschnei/mv-ddr-marvell) of the repository which patches the first difference, but not the second. I opened a [PR](https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell/pull/43) upstream for this change.
+The mv-ddr-marvell submodule in this repo uses [my fork](https://github.com/bschnei/mv-ddr-marvell) of the repository which patches the first difference, but not the second which seems to be a good fix.
 
-## Patching A3700-utils-marvell (Optional)
-DDR initialization is considerably slower in Marvell's A3700-utils-repo than in Globalscale's. This is related to five consecutive commits whose message is tagged with ddr_init that were committed May 21, 2019 between versions 18.2.0 and 18.2.1, the first of which is [here](https://github.com/MarvellEmbeddedProcessors/A3700-utils-marvell/commit/4d785e3ec35daf77d85c0f26e91388afcca0d478). Using copies of the `sys_init/ddr` files prior to those changes resolves the issue.
+## Building
+To build the required ATF image used by [bubt](https://source.denx.de/u-boot/u-boot/-/blob/master/doc/mvebu/cmd/bubt.txt) to update the device's firmware:
+```
+make clean
+make
+```
+The image is output to `trusted-firmware-a/build/a3700/release/flash-image.bin`.
 
-The commit messages in Marvell's repos suggest the ddr_init changes were made were for stability reasons. I have not experienced any issues and have been using the faster code on my device for months.
+## USB Flashing
+Put the ATF image file onto a USB flash drive and use the `bubt` command from u-boot to flash. If your device can't make it to the u-boot prompt using the firmware stored on the device (in SPINOR), you'll need to sideload a known stable ATF image via UART using [mox-imager](https://gitlab.nic.cz/turris/mox-imager).
 
-To restore the ddr_init code that boots quickly: `git apply ddr_init.patch --directory=A3700-utils-marvell`
+Example: `mox-imager -D /dev/ttyUSB0 -b 3000000 -E flash-image.bin`
 
-## Configuring CPU Clock Speed
+Where `flash-image.bin` is the path to the image you want to sideload. Note that the device needs to be put in UART boot mode via changing a jumper on the board itself (see the Quick Start Guide in docs). It may take a few tries for `mox-imager` to put the device in download mode. Be sure to close any other programs using /dev/ttyUSB0 like Putty. Once u-boot loads `bubt` is then available to flash the device again. After flashing a known working image to SPI, power down the device and change the jumper back to confirm the device boots as expected.
 
-In the `build_bootloader()` function, there is a `cpu_speed` variable. This variable is the CPU clock speed in MHz and can take the integer values 800, 1000, or 1200. While the ESPRESSObin Ultra has mixed advertising claiming speeds either up to 1 or 1.2Ghz, [Linux has explicitly disabled 1.2Ghz](https://github.com/torvalds/linux/commit/484f2b7c61b9ae58cc00c5127bcbcd9177af8dfe) as a speed for this device. I believe if a 1.2Ghz clock speed is set by the firmware, Linux will display a kernel error on boot and scale the speed down to 1Ghz for stability.
+## Known Issues
+
+### CPU Frequency Scaling at 1.2GHz
+The Armada 3720 CPU (88F3720) is supposedly capable of speeds up to 1.2Ghz, but [Linux disables 1.2Ghz](https://github.com/torvalds/linux/commit/484f2b7c61b9ae58cc00c5127bcbcd9177af8dfe) as a speed for this device. If you flash a bootloader that sets the CPU speed to 1.2Ghz (CLOCKSPRESET=CPU_1200_DDR_750) Linux will not be able to manage the CPU frequency (cpufreq-dt does not load) and the system will run stably, but at full speed (1.2Ghz) continuously.
 
 A significant contributor to both kernel and A3700 firmware development believes the firmware is the source of the problem. For a long discussion, see [here](https://github.com/MarvellEmbeddedProcessors/linux-marvell/issues/20).
 
-The ability to scale CPU frequency dynamically with Linux is unknown/untested.
+For CPU frequency scaling to work, the firmware should set the CPU clock to 1GHz (CLOCKSPRESET=CPU_1000_DDR_800).
 
-## Building
-```
-source build.sh
-build_bootloader
-```
-Output is saved in the `build` directory.
-
-## Flashing
-Copy the `flash.bin` file from the directory with the build timestamp that you want to flash onto a USB flash drive and run `bubt flash.bin spi usb` from u-boot to flash. If your device can't make it to the u-boot prompt, you'll need to boot a known stable image via UART and then use bubt u-boot to flash a stable image. Don't use the WtpDownloader tool from Marvell. It sucks. Use [mox-imager](https://gitlab.nic.cz/turris/mox-imager) instead.
+### DDR Initialization Speed
+DDR initialization is considerably slower in Marvell's A3700-utils-repo than in Globalscale's. This is related to five consecutive commits whose message is tagged with ddr_init that were committed May 21, 2019 between versions 18.2.0 and 18.2.1, the first of which is [here](https://github.com/MarvellEmbeddedProcessors/A3700-utils-marvell/commit/4d785e3ec35daf77d85c0f26e91388afcca0d478). Using copies of the `sys_init/ddr` files prior to those changes resolves the issue but would lose also lose any improvements/fixes.

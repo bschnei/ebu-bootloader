@@ -10,6 +10,9 @@ UBOOT_SRC	:= ${BASE_DIR}/u-boot
 TFA_SRC		:= ${BASE_DIR}/trusted-firmware-a
 MBB_SRC		:= ${BASE_DIR}/mox-boot-builder
 
+# see README
+CLOCKSPRESET ?= CPU_1000_DDR_800
+
 all: bubt_image
 
 u-boot: ${UBOOT_SRC}/u-boot.bin
@@ -23,7 +26,7 @@ ${TFA_SRC}/build/a3700/release/flash-image.bin: u-boot wtmi_app FORCE
 		USE_COHERENT_MEM=0 \
 		MV_DDR_PATH=${BASE_DIR}/mv-ddr-marvell \
 		DDR_TOPOLOGY=5 \
-		CLOCKSPRESET=CPU_1000_DDR_800 \
+		CLOCKSPRESET=${CLOCKSPRESET} \
 		WTP=${BASE_DIR}/A3700-utils-marvell \
 		CRYPTOPP_PATH=${BASE_DIR}/cryptopp \
 		BL33=${UBOOT_SRC}/u-boot.bin \

@@ -2,7 +2,7 @@
 BASE_DIR := $(dir $(realpath $(lastword $(MAKEFILE_LIST)))).
 
 # make/compiler settings
-CROSS_COMPILE	:= ${BASE_DIR}/toolchain/gcc-linaro-7.3.1-2018.05-x86_64_aarch64-linux-gnu/bin/aarch64-linux-gnu-
+CROSS_COMPILE	:= aarch64-linux-gnu-
 CROSS_CM3		:= arm-linux-gnueabi-
 
 # paths to source code
@@ -11,7 +11,7 @@ TFA_SRC		:= ${BASE_DIR}/trusted-firmware-a
 MBB_SRC		:= ${BASE_DIR}/mox-boot-builder
 
 # see README
-CLOCKSPRESET ?= CPU_1000_DDR_800
+CLOCKSPRESET ?= CPU_1200_DDR_750
 
 all: bubt_image
 

@@ -49,7 +49,7 @@ It may take a few power cycles for `mox-imager` to successfully put the device i
 ## Notes
 
 ### U-Boot
-Upstream U-Boot is missing the device tree (.dts) and default configuration (defconfig) for the ESPRESSObin Ultra. A [patch for the device tree](https://patchwork.ozlabs.org/project/uboot/list/?series=397560) has been submitted; configuration is done by hacking mvebu_espressobin-88f3720_defconfig which has most of the required settings given the similarity of the devices.
+Upstream U-Boot is missing the device tree (.dts) and default configuration (defconfig) for the ESPRESSObin Ultra. A [patch for the device tree](https://patchwork.ozlabs.org/project/uboot/list/?series=397560) has been submitted upstream. The default configuration is patched in as mvebu_espressobin_ultra-88f3720_defconfig.
 
 ### CPU Frequency Scaling at 1.2GHz
 The Armada 3720 CPU (88F3720) is capable of speeds up to 1.2Ghz, but mainstream Linux disables 1.2Ghz as a speed for this device. If you flash a bootloader that sets the CPU speed to 1.2Ghz (CLOCKSPRESET=CPU_1200_DDR_750) Linux will not be able to manage the CPU frequency (cpufreq-dt does not load) and the system will run stably, but at full speed (1.2Ghz) continuously. For a long discussion, see [here](https://github.com/MarvellEmbeddedProcessors/linux-marvell/issues/20).

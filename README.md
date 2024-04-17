@@ -11,18 +11,18 @@ This project seeks to address these and other issues associated with old/unmaint
 
 ## Build Host
 
-The directions, makefile, and script here are meant to be run on a fully upgraded Ubuntu Server 22.04 virtual machine using a base image from [osboxes.org](https://www.osboxes.org/ubuntu-server/#ubuntu-server-22-04-vbox). Upgrade all packages, resolve any issues, and restart the VM which should leave you with Ubuntu 22.04.4.
-
-__Note__: AFAIK the build process for osboxes images is not open source. If that's a problem in your scenario, install Ubuntu Server 22.04 from scratch. It's also not required to use Ubuntu--any Linux distro should work provided the required build dependencies are satisfied and the _same version_ is used as that in Ubuntu 22.04.4.
-
-Install build dependencies:
+Any x64 Linux host should work provided the required build dependencies are installed. Building will fail with a pretty obvious error message if a required dependency is missing. For Ubuntu Server (and relatives), the additional dependencies (i.e. those not included in a base 22.04 image) can be installed with:
 ```
 sudo apt install bison flex g++ gcc \
 gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi \
 libncurses-dev libssl-dev make
 ```
 
-Note: While the Armada 3720 uses 64-bit ARMv8 processors, `gcc-arm-linux-gnueabi` provides a 32-bit ARM cross-compiler which is used to compile a part of the bootloader (`wtmi_app.bin`) meant to run on an internal Cortex-M3 coprocessor.
+For Arch Linux, the `base-devel` meta package plus the cross-compilers `arm-linux-gnueabi-gcc` and `aarch64-linux-gnu-gcc` should be all that's needed.
+
+While the Armada 3720 uses 64-bit ARMv8 processors, `arm-linux-gnueabi` is the 32-bit ARM cross-compiler which is used to compile a part of the bootloader (`wtmi_app.bin`) meant to run on an internal Cortex-M3 coprocessor.
+
+Before building, verify that you are using the same version of GCC for all three architectures (x64, arm, aarch64). Inconsistent compiler versions could lead to a build that appears to complete just fine but won't actually boot.
 
 ## Building
 A detailed explanation of the build process this project follows can be found [here](https://trustedfirmware-a.readthedocs.io/en/v2.10/plat/marvell/armada/build.html). Note that this project uses [git submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules) which need to be initialized and updated prior to building.
@@ -34,22 +34,29 @@ make
 ```
 When successful, the image meant for `bubt` is output to `trusted-firmware-a/build/a3700/release/flash-image.bin`.
 
-## USB Flashing
-Put the TF-A image file onto a USB flash drive and run `bubt flash-image.bin spi usb` to flash the image to the device's permanent storage (SPINOR). Resetting the device will then cause it to load the newly flashed image.
+## Testing
+The fantastic [mox-imager](https://gitlab.nic.cz/turris/mox-imager) tool makes it possible to boot the device from a new TF-A image *without flashing the new image to the device's permanent storage (SPINOR)*. I'll refer to this process as *sideloading*.
 
-## UART Recovery
-If the device fails to make it to the U-Boot prompt using the bootloader stored in SPI, it is possible to sideload a known stable TF-A image via UART using [mox-imager](https://gitlab.nic.cz/turris/mox-imager).
+Sideloading facilitates testing a potential new bootloader image without overwriting the device's current bootloader. Because the device has this capability, there are __zero excuses__ for flashing a bootloader so broken that the device doesn't at least make it to a U-Boot prompt. If you sideload a potential new TF-A image via mox-imager and discover that it's completely broken, you can simply power cycle the device to go right back to the current stable bootloader.
 
-For example: `mox-imager -D /dev/ttyUSB0 -b 3000000 -E flash-image.bin` where `flash-image.bin` is the path to the image you want to sideload.
+However, simply making it to the U-Boot prompt is also not a guarantee that the new image is also *stable* and *fully functional*. E.g. the device tree built into U-Boot could have problems that prevent U-Boot from accessing storage devices.
 
-Note that the device might need to be put in UART boot mode by setting jumper switch J10 to 0 on the board itself. Normal boot mode has all jumpers in the block (J3, J10, and J11) set to 1 so normally only J10 might need to be changed. For more info, see page 13 in the Quick Start Guide in docs.
+As a result, **before** flashing any new TF-A image to permanent storage, test it by sideloading it. Then watch boot messages/check logs to make sure the system still boots normally. *Then use it for at least a few days*. Do not let it sit idle and then assume everything is fine just because it hasn't crashed after a few days. Put the CPU under load, run [stress](https://github.com/resurrecting-open-source-projects/stress), use it as a router, test anything and everything you know to be working and stable with the current bootloader.
 
-It may take a few power cycles for `mox-imager` to successfully put the device in download mode. Be sure to close any other programs that could interfere with the device file that represents the USB console (usually /dev/ttyUSB0) such as PuTTY. Once U-Boot loads, `bubt` is then available to flash SPI again. After flashing a known working image to SPI, power down the device, change jumper J10 back if needed, and confirm the device boots as expected.
+To use mox-imager, connect the USB serial console port to the host that will run mox-imager and has the TF-A image you want to sideload. Linux should create a device node like /dev/ttyUSB0. Be sure to close any other programs that could interfere with the device node that represents the USB console such as PuTTY. A sample command might be: `mox-imager -D /dev/ttyUSB0 -b 3000000 -t -E flash-image.bin` where `flash-image.bin` is the path to the image you want to sideload.
+
+Follow the on-screen instructions. It is normal for mox-imager to need several power cycles before successfully putting the device in sideload mode.
+
+## Flashing to Permanent Storage
+After you are comfortable with the stability and performance observed in testing, put the TF-A image file onto a USB flash drive and plug it into the device. Power cycle and stop the boot process at U-Boot. Run `bubt flash-image.bin spi usb` to flash the image to the device's permanent storage. Resetting the device will then cause it to load the newly flashed image.
+
+## Recovery
+Sideloading can also be used to recover from a bad bootloader flashed to permanent storage (e.g. power goes out while flashing, bit flips, etc.), but you have to have a known stable bootloader handy. Sideload it, interrupt U-Boot, and then use `bubt` to flash a good bootloader to SPI again.
 
 ## Notes
 
 ### U-Boot
-Upstream U-Boot is missing the device tree (.dts) and default configuration (defconfig) for the ESPRESSObin Ultra. A [patch for the device tree](https://patchwork.ozlabs.org/project/uboot/list/?series=397560) has been submitted upstream. The default configuration is patched in as mvebu_espressobin_ultra-88f3720_defconfig.
+Upstream U-Boot is missing the device tree (.dts) and default configuration (defconfig) for the ESPRESSObin Ultra. The default configuration is patched in as mvebu_espressobin_ultra-88f3720_defconfig and the device tree as u-boot-dts.patch.
 
 ### CPU Frequency Scaling at 1.2GHz
 The Armada 3720 CPU (88F3720) is capable of speeds up to 1.2Ghz, but mainstream Linux disables 1.2Ghz as a speed for this device. If you flash a bootloader that sets the CPU speed to 1.2Ghz (CLOCKSPRESET=CPU_1200_DDR_750) Linux will not be able to manage the CPU frequency (cpufreq-dt does not load) and the system will run stably, but at full speed (1.2Ghz) continuously. For a long discussion, see [here](https://github.com/MarvellEmbeddedProcessors/linux-marvell/issues/20).

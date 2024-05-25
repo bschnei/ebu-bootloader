@@ -18,16 +18,16 @@ gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi \
 libncurses-dev libssl-dev make
 ```
 
-For Arch Linux, the `base-devel` meta package plus the cross-compilers `arm-linux-gnueabi-gcc` and `aarch64-linux-gnu-gcc` should be all that's needed.
+For Arch Linux, the `base-devel` meta package, `bc`, and the cross-compilers `arm-linux-gnueabi-gcc` and `aarch64-linux-gnu-gcc` should be all that's needed.
 
 While the Armada 3720 uses 64-bit ARMv8 processors, `arm-linux-gnueabi` is the 32-bit ARM cross-compiler which is used to compile a part of the bootloader (`wtmi_app.bin`) meant to run on an internal Cortex-M3 coprocessor.
 
-Before building, verify that you are using the same version of GCC for all three architectures (x64, arm, aarch64). Inconsistent compiler versions could lead to a build that appears to complete just fine but won't actually boot.
+I'm currently building with GCC 14.1, but older compiler versions should work OK. I strongly recommend using the same version of GCC for all three architectures (x64, arm, aarch64). Inconsistent compiler versions could lead to a build that appears to complete just fine but won't actually boot.
 
 ## Building
 A detailed explanation of the build process this project follows can be found [here](https://trustedfirmware-a.readthedocs.io/en/v2.10/plat/marvell/armada/build.html). Note that this project uses [git submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules) which need to be initialized and updated prior to building.
 
-To build the required TF-A image used by [bubt](https://source.denx.de/u-boot/u-boot/-/blob/master/doc/mvebu/cmd/bubt.txt) to update the device's bootloader, run:
+To build the required [Trusted Firmware-A](https://www.trustedfirmware.org/projects/tf-a) (TF-A) image used by [bubt](https://source.denx.de/u-boot/u-boot/-/blob/master/doc/mvebu/cmd/bubt.txt) to update the device's bootloader, run:
 ```
 make clean
 make
@@ -35,13 +35,13 @@ make
 When successful, the image meant for `bubt` is output to `trusted-firmware-a/build/a3700/release/flash-image.bin`.
 
 ## Testing
-The fantastic [mox-imager](https://gitlab.nic.cz/turris/mox-imager) tool makes it possible to boot the device from a new TF-A image *without flashing the new image to the device's permanent storage (SPINOR)*. I'll refer to this process as *sideloading*.
+The [mox-imager](https://gitlab.nic.cz/turris/mox-imager) tool makes it possible to boot the device from a TF-A image *without flashing the new image to the device's permanent storage* (SPINOR). I'll refer to this process as *sideloading*.
 
-Sideloading facilitates testing a potential new bootloader image without overwriting the device's current bootloader. Because the device has this capability, there are __zero excuses__ for flashing a bootloader so broken that the device doesn't at least make it to a U-Boot prompt. If you sideload a potential new TF-A image via mox-imager and discover that it's completely broken, you can simply power cycle the device to go right back to the current stable bootloader.
+Sideloading facilitates testing a potential new bootloader image without permanently updating the device's stored bootloader. For example, if you sideload a potential new TF-A image via mox-imager and discover that it's so broken you cannot boot Linux, you can simply power cycle the device to boot from the bootloader stored to SPINOR.
 
-However, simply making it to the U-Boot prompt is also not a guarantee that the new image is also *stable* and *fully functional*. E.g. the device tree built into U-Boot could have problems that prevent U-Boot from accessing storage devices.
+**Note:** successfully booting Linux is not a guarantee that a new image is also *stable* and *fully functional*. Because use cases vary (e.g. I don't use the Bluetooth/WiFi device), only you can decide whether or not you are comfortable permanently updating the bootloader.
 
-As a result, **before** flashing any new TF-A image to permanent storage, test it by sideloading it. Then watch boot messages/check logs to make sure the system still boots normally. *Then use it for at least a few days*. Do not let it sit idle and then assume everything is fine just because it hasn't crashed after a few days. Put the CPU under load, run [stress](https://github.com/resurrecting-open-source-projects/stress), use it as a router, test anything and everything you know to be working and stable with the current bootloader.
+For my use case, I check boot messages and systemd logs to make sure there aren't any unexpected/new messages. I then typically use the new image for about a week before flashing to a production device used as home edge router. I put the CPU and memory under load by compiling source and/or running [stress](https://github.com/resurrecting-open-source-projects/stress). I also spot check device features I knew to be working if upstream has changes to device trees, e.g.
 
 To use mox-imager, connect the USB serial console port to the host that will run mox-imager and has the TF-A image you want to sideload. Linux should create a device node like /dev/ttyUSB0. Be sure to close any other programs that could interfere with the device node that represents the USB console such as PuTTY. A sample command might be: `mox-imager -D /dev/ttyUSB0 -b 3000000 -t -E flash-image.bin` where `flash-image.bin` is the path to the image you want to sideload.
 
@@ -51,7 +51,7 @@ Follow the on-screen instructions. It is normal for mox-imager to need several p
 After you are comfortable with the stability and performance observed in testing, put the TF-A image file onto a USB flash drive and plug it into the device. Power cycle and stop the boot process at U-Boot. Run `bubt flash-image.bin spi usb` to flash the image to the device's permanent storage. Resetting the device will then cause it to load the newly flashed image.
 
 ## Recovery
-Sideloading can also be used to recover from a bad bootloader flashed to permanent storage (e.g. power goes out while flashing, bit flips, etc.), but you have to have a known stable bootloader handy. Sideload it, interrupt U-Boot, and then use `bubt` to flash a good bootloader to SPI again.
+Sideloading can also be used to recover from a bad bootloader flashed to permanent storage (e.g. power goes out while flashing, bit flips, etc.), but you have to have a known stable bootloader handy. I use the `archive.sh` script and mount the build directory directly to a USB thumb drive I use exclusively for storing builds. To recover: sideload your known working good image, interrupt U-Boot, and then use `bubt` to flash the good bootloader to SPI.
 
 ## Notes
 
@@ -59,13 +59,13 @@ Sideloading can also be used to recover from a bad bootloader flashed to permane
 Upstream U-Boot is missing the device tree (.dts) and default configuration (defconfig) for the ESPRESSObin Ultra. The default configuration is patched in as mvebu_espressobin_ultra-88f3720_defconfig and the device tree as u-boot-dts.patch.
 
 ### CPU Frequency Scaling at 1.2GHz
-The Armada 3720 CPU (88F3720) is capable of speeds up to 1.2Ghz, but mainstream Linux disables 1.2Ghz as a speed for this device. If you flash a bootloader that sets the CPU speed to 1.2Ghz (CLOCKSPRESET=CPU_1200_DDR_750) Linux will not be able to manage the CPU frequency (cpufreq-dt does not load) and the system will run stably, but at full speed (1.2Ghz) continuously. For a long discussion, see [here](https://github.com/MarvellEmbeddedProcessors/linux-marvell/issues/20).
+The Armada 3720 CPU (88F3720) is capable of speeds up to 1.2Ghz, but [mainstream Linux disables 1.2Ghz](https://github.com/torvalds/linux/blob/master/drivers/cpufreq/armada-37xx-cpufreq.c#L109) as a speed for this device. If you flash a bootloader that sets the CPU speed to 1.2Ghz (CLOCKSPRESET=CPU_1200_DDR_750) Linux will not be able to manage the CPU frequency (cpufreq-dt does not load) and the system will run stably, but at full speed (1.2Ghz) continuously. For a long discussion, see [here](https://github.com/MarvellEmbeddedProcessors/linux-marvell/issues/20).
 
-This project adjusts the value for the Channel 0 PHY Control 2 in the mv-ddr-marvell repo to that used in [Globalscale's repo](https://github.com/globalscaletechnologies/A3700-utils-marvell/commit/feced21c4c343428eab2f99cc9c78028bb961690) which results in a stable system at all supported CPU frequencies. A [PR](https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell/pull/44) has been opened upstream.
+The Linux kernel needs to be patched to enable frequency scaling when the bootloader sets the CPU speed to 1.2Ghz. A script to patch and package the kernel for Arch Linux can be found [here](https://github.com/bschnei/linux-a3700/).
 
-The Linux kernel needs to be patched to enable frequency scaling when the bootloader sets the CPU speed to 1.2Ghz. A script to patch and package the kernel for Arch Linux can be found [here](https://github.com/bschnei/linux-ebu/). Alternatively, frequency scaling will work without patching the kernel if the bootloader sets the CPU clock to 1GHz (`make CLOCKSPRESET=CPU_1000_DDR_800`), but that will be the maximum available frequency to the operating system.
+Alternatively, frequency scaling will work without patching the kernel if the bootloader sets the CPU clock to 1GHz (`make CLOCKSPRESET=CPU_1000_DDR_800`), but that will be the maximum available frequency to the operating system.
 
 ### Marvell repos
 The mv-ddr repo is used by the A3700-utils repo to make the `a3700_tool` target which is an executable. The executable gets copied (and renamed) to `A3700-utils-marvell/tim/ddr/ddr_tool` before being run by `A3700-utils-marvell/scripts/buildtim.sh`. The program generates the `ddr_static.txt` file in `A3700-utils-marvell/tim/ddr`. The contents of the file then get inserted by the `buildtim.sh` script into the `atf-ntim.txt` file used by TF-A to build the firmware image. The `ddr_static.txt` file contains instructions used to initialize memory.
 
-Globalscale's repos produce a `ddr_static.txt` file that differs from Marvell's in two places. The first difference is noted above. The [second difference](https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell/commit/4208ad5f2d1cee6125d3047ea1aac90a051e3d16) doesn't seem to impact system stability so we use Marvell's version.
+Globalscale's repos produce a `ddr_static.txt` file that differs from Marvell's in [one place](https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell/commit/4208ad5f2d1cee6125d3047ea1aac90a051e3d16). However, Marvell's version is what is currently known to be stable so that is what is used.

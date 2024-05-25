@@ -9,7 +9,7 @@
 	url = https://github.com/MarvellEmbeddedProcessors/A3700-utils-marvell.git
 [submodule "mv-ddr-marvell"]
 	path = mv-ddr-marvell
-	url = https://github.com/bschnei/mv-ddr-marvell.git
+	url = https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell.git
 [submodule "mox-boot-builder"]
 	path = mox-boot-builder
 	url = https://gitlab.nic.cz/turris/mox-boot-builder.git

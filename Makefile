@@ -34,7 +34,7 @@ ${TFA_SRC}/build/a3700/release/flash-image.bin: u-boot wtmi_app FORCE
 		mrvl_flash
 
 ${MBB_SRC}/wtmi_app.bin: FORCE
-	$(MAKE) -C ${MBB_SRC} CROSS_CM3=${CROSS_CM3} wtmi_app.bin
+	$(MAKE) -C ${MBB_SRC} CROSS_COMPILE=${CROSS_COMPILE} CROSS_CM3=${CROSS_CM3} wtmi_app.bin
 
 ${UBOOT_SRC}/u-boot.bin: FORCE
 

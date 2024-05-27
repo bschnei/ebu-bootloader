@@ -9,6 +9,8 @@ CROSS_CM3		:= arm-linux-gnueabi-
 UBOOT_SRC	:= ${BASE_DIR}/u-boot
 TFA_SRC		:= ${BASE_DIR}/trusted-firmware-a
 MBB_SRC		:= ${BASE_DIR}/mox-boot-builder
+WTP_SRC		:= ${BASE_DIR}/A3700-utils-marvell
+MV_DDR_SRC	:= ${BASE_DIR}/mv-ddr-marvell
 
 # see README
 CLOCKSPRESET ?= CPU_1200_DDR_750
@@ -24,17 +26,20 @@ ${TFA_SRC}/build/a3700/release/flash-image.bin: u-boot wtmi_app FORCE
 		CROSS_COMPILE=${CROSS_COMPILE} \
 		PLAT=a3700 \
 		USE_COHERENT_MEM=0 \
-		MV_DDR_PATH=${BASE_DIR}/mv-ddr-marvell \
+		MV_DDR_PATH=${MV_DDR_SRC} \
 		DDR_TOPOLOGY=5 \
 		CLOCKSPRESET=${CLOCKSPRESET} \
-		WTP=${BASE_DIR}/A3700-utils-marvell \
+		WTP=${WTP_SRC} \
 		CRYPTOPP_PATH=${BASE_DIR}/cryptopp \
 		BL33=${UBOOT_SRC}/u-boot.bin \
 		WTMI_IMG=${MBB_SRC}/wtmi_app.bin \
 		mrvl_flash
 
 ${MBB_SRC}/wtmi_app.bin: FORCE
-	$(MAKE) -C ${MBB_SRC} CROSS_COMPILE=${CROSS_COMPILE} CROSS_CM3=${CROSS_CM3} wtmi_app.bin
+	$(MAKE) -C ${MBB_SRC} \
+		CROSS_COMPILE=${CROSS_COMPILE} \
+		CROSS_CM3=${CROSS_CM3} \
+		wtmi_app.bin
 
 ${UBOOT_SRC}/u-boot.bin: FORCE
 
@@ -56,5 +61,9 @@ clean:
 	-$(MAKE) -C ${MBB_SRC} clean
 	-$(MAKE) -C ${TFA_SRC} distclean
 
-.PHONY: u-boot wtmi_app bubt_image clean FORCE
+gitclean:
+	@git -C ${WTP_SRC} clean -fd
+	@git -C ${MV_DDR_SRC} clean -f
+
+.PHONY: u-boot wtmi_app bubt_image clean gitclean FORCE
 FORCE:;

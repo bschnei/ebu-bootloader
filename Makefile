@@ -12,8 +12,9 @@ MBB_SRC		:= ${BASE_DIR}/mox-boot-builder
 WTP_SRC		:= ${BASE_DIR}/A3700-utils-marvell
 MV_DDR_SRC	:= ${BASE_DIR}/mv-ddr-marvell
 
-# see README
+# see https://trustedfirmware-a.readthedocs.io/en/latest/plat/marvell/armada/build.html
 CLOCKSPRESET ?= CPU_1200_DDR_750
+DDR_TOPOLOGY ?= 5
 
 all: bubt_image
 
@@ -27,7 +28,7 @@ ${TFA_SRC}/build/a3700/release/flash-image.bin: u-boot wtmi_app FORCE
 		PLAT=a3700 \
 		USE_COHERENT_MEM=0 \
 		MV_DDR_PATH=${MV_DDR_SRC} \
-		DDR_TOPOLOGY=5 \
+		DDR_TOPOLOGY=${DDR_TOPOLOGY} \
 		CLOCKSPRESET=${CLOCKSPRESET} \
 		WTP=${WTP_SRC} \
 		CRYPTOPP_PATH=${BASE_DIR}/cryptopp \

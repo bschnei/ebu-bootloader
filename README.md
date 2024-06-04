@@ -25,7 +25,7 @@ While the Armada 3720 uses 64-bit ARMv8 processors, `arm-linux-gnueabi` is the 3
 I'm currently building with GCC 14.1, but older compiler versions should work OK. I strongly recommend using the same version of GCC for all three architectures (x64, arm, aarch64). Inconsistent compiler versions could lead to a build that appears to complete just fine but won't actually boot.
 
 ## Building
-A detailed explanation of the build process this project follows can be found [here](https://trustedfirmware-a.readthedocs.io/en/v2.10/plat/marvell/armada/build.html). Note that this project uses [git submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules) which need to be initialized and updated prior to building.
+A detailed explanation of the build process this project follows can be found [here](https://trustedfirmware-a.readthedocs.io/en/latest/plat/marvell/armada/build.html). Note that this project uses [git submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules) which need to be initialized and updated prior to building.
 
 To build the required [Trusted Firmware-A](https://www.trustedfirmware.org/projects/tf-a) (TF-A) image used by [bubt](https://source.denx.de/u-boot/u-boot/-/blob/master/doc/mvebu/cmd/bubt.txt) to update the device's bootloader, run:
 ```

@@ -56,7 +56,7 @@ Sideloading can also be used to recover from a bad bootloader flashed to permane
 ## Notes
 
 ### U-Boot
-Upstream U-Boot is missing the device tree (.dts) and default configuration (defconfig) for the ESPRESSObin Ultra. The default configuration is patched in as mvebu_espressobin_ultra-88f3720_defconfig and the device tree as u-boot-dts.patch.
+Support for the ESPRESSObin Ultra has been [merged](https://source.denx.de/u-boot/custodians/u-boot-marvell/-/commit/d901c9b8d69e2036c3e991e0364b5eb008788a32) into the Marvell ARM Custodian Tree. This should make it part of the 2024.10 release of U-Boot. Until then, configuration (mvebu_espressobin_ultra-88f3720_defconfig) is copied into `u-boot/configs` and the device tree (u-boot-dts.patch) is patched in.
 
 ### CPU Frequency Scaling at 1.2GHz
 The Armada 3720 CPU (88F3720) is capable of speeds up to 1.2Ghz, but [mainstream Linux disables 1.2Ghz](https://github.com/torvalds/linux/blob/master/drivers/cpufreq/armada-37xx-cpufreq.c#L109) as a speed for this device. If you flash a bootloader that sets the CPU speed to 1.2Ghz (CLOCKSPRESET=CPU_1200_DDR_750) Linux will not be able to manage the CPU frequency (cpufreq-dt does not load) and the system will run stably, but at full speed (1.2Ghz) continuously. For a long discussion, see [here](https://github.com/MarvellEmbeddedProcessors/linux-marvell/issues/20).

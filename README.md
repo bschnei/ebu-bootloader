@@ -1,13 +1,13 @@
 # ESPRESSObin Ultra Bootloader
 
-The [Globalscale ESPRESSObin Ultra](https://globalscaletechnologies.com/product/espressobin-ultra/) is a network appliance built with Marvell's Armada 3720 SoC (A3700). The source for its bootloader is open, but Globalscale's [build instructions](https://espressobin.net/espressobin-ultra-build-instruction/) and [forks](https://github.com/globalscaletechnologies) have not been kept up-to-date.
+The [Globalscale ESPRESSObin Ultra](https://globalscaletechnologies.com/product/espressobin-ultra/) is a network appliance built with Marvell's Armada 3720 SoC (A3700). The source for its bootloader is open, but Globalscale has ceased maintaining their source. [Their repos](https://github.com/globalscaletechnologies) are forked off old versions of upstream U-Boot, ARM TF-A, and Marvell repos. Their [build instructions](https://espressobin.net/espressobin-ultra-build-instruction/) also refer to outdated versions of Linux and build tools.
 
-There are also a variety of known issues with the factory bootloader:
-* CPU frequency scaling when the bootloader sets the frequency to 1.2Ghz is [disabled](https://github.com/torvalds/linux/commit/484f2b7c61b9ae58cc00c5127bcbcd9177af8dfe).
-* EFI booting from U-Boot is [broken](https://lore.kernel.org/regressions/NpVfaMj--3-9@bens.haus/T/).
-* The hardware random number generator contained in the Cortex-M3 coprocessor is [not available](https://gitlab.nic.cz/turris/mox-boot-builder).
+I also found the following issues with the devices I received from Globalscale in 2023:
+* CPU Frequency Scaling at the maximum advertised frequency of 1.2Ghz was [disabled in the kernel](https://github.com/torvalds/linux/commit/484f2b7c61b9ae58cc00c5127bcbcd9177af8dfe). As a result, the bootloader underclocked the CPU so that frequency scaling would work with Linux.
+* [UEFI on U-Boot](https://docs.u-boot.org/en/latest/develop/uefi/uefi.html) was [broken](https://lore.kernel.org/regressions/NpVfaMj--3-9@bens.haus/T/).
+* The hardware random number generator contained in the Cortex-M3 coprocessor was [not available to the OS](https://gitlab.nic.cz/turris/mox-boot-builder).
 
-This project seeks to address these and other issues associated with old/unmaintained source code. 
+This project fixed these issues and seeks to contribute the fixes to upstream projects. This project is only focused on the ESPRESSObin Ultra but contributions to support other devices that use the A3700 chipset are welcome.
 
 ## Build Host
 
@@ -39,11 +39,11 @@ The [mox-imager](https://gitlab.nic.cz/turris/mox-imager) tool makes it possible
 
 Sideloading facilitates testing a potential new bootloader image without permanently updating the device's stored bootloader. For example, if you sideload a potential new TF-A image via mox-imager and discover that it's so broken you cannot boot Linux, you can simply power cycle the device to boot from the bootloader stored to SPINOR.
 
-**Note:** successfully booting Linux is not a guarantee that a new image is also *stable* and *fully functional*. Because use cases vary (e.g. I don't use the Bluetooth/WiFi device), only you can decide whether or not you are comfortable permanently updating the bootloader.
+**Note:** successfully booting Linux is not a guarantee that a new image is also *stable* and *fully functional*. Because use cases vary (e.g. I don't use the Bluetooth/WiFi device), only you can decide whether or not you are comfortable flashing to permanent storage with `bubt`.
 
 For my use case, I check boot messages and systemd logs to make sure there aren't any unexpected/new messages. I then typically use the new image for about a week before flashing to a production device used as home edge router. I put the CPU and memory under load by compiling source and/or running [stress](https://github.com/resurrecting-open-source-projects/stress). I also spot check device features I knew to be working if upstream has changes to device trees, e.g.
 
-To use mox-imager, connect the USB serial console port to the host that will run mox-imager and has the TF-A image you want to sideload. Linux should create a device node like /dev/ttyUSB0. Be sure to close any other programs that could interfere with the device node that represents the USB console such as PuTTY. A sample command might be: `mox-imager -D /dev/ttyUSB0 -b 3000000 -t -E flash-image.bin` where `flash-image.bin` is the path to the image you want to sideload.
+To use mox-imager, connect the USB serial console port to the Linux host that will run mox-imager and has the TF-A image you want to sideload. Linux should create a device node *like* `/dev/ttyUSB0`. Be sure to close any other programs that could interfere with the device node that represents the USB console such as PuTTY. A sample command might be: `mox-imager -D /dev/ttyUSB0 -b 3000000 -t -E flash-image.bin` where `flash-image.bin` is the path to the image you want to sideload.
 
 Follow the on-screen instructions. It is normal for mox-imager to need several power cycles before successfully putting the device in sideload mode.
 
@@ -59,9 +59,11 @@ Sideloading can also be used to recover from a bad bootloader flashed to permane
 Support for the ESPRESSObin Ultra has been [merged](https://source.denx.de/u-boot/custodians/u-boot-marvell/-/commit/d901c9b8d69e2036c3e991e0364b5eb008788a32) into the Marvell ARM Custodian Tree. This should make it part of the 2024.10 release of U-Boot. Until then, configuration (mvebu_espressobin_ultra-88f3720_defconfig) is copied into `u-boot/configs` and the device tree (u-boot-dts.patch) is patched in.
 
 ### CPU Frequency Scaling at 1.2GHz
-The Armada 3720 CPU (88F3720) is capable of speeds up to 1.2Ghz, but [mainstream Linux disables 1.2Ghz](https://github.com/torvalds/linux/blob/master/drivers/cpufreq/armada-37xx-cpufreq.c#L109) as a speed for this device. If you flash a bootloader that sets the CPU speed to 1.2Ghz (CLOCKSPRESET=CPU_1200_DDR_750) Linux will not be able to manage the CPU frequency (cpufreq-dt does not load) and the system will run stably, but at full speed (1.2Ghz) continuously. For a long discussion, see [here](https://github.com/MarvellEmbeddedProcessors/linux-marvell/issues/20).
+The Armada 3720 CPU (88F3720) is capable of speeds up to 1.2Ghz. However, my devices arrived underclocked by the factory bootloader. When I used a bootloader built with `CLOCKSPRESET=CPU_1200_DDR_750`, Linux was unable to manage the CPU frequency (the kernel module `cpufreq-dt` will not load), and the system will run stably, but at full speed (1.2Ghz) *continuously*.
 
-The Linux kernel needs to be patched to enable frequency scaling when the bootloader sets the CPU speed to 1.2Ghz. A script to patch and package the kernel for Arch Linux can be found [here](https://github.com/bschnei/linux-a3700/).
+This device has a long and complicated [history](https://github.com/MarvellEmbeddedProcessors/linux-marvell/issues/20) of instability. It seems likely that at least some (if not all) of the reported instability may have been actually the result of a bad value in Marvell's memory initaliziation [all along](https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell/pull/44) and not the result of a bad kernel driver.
+
+Unless/until it is merged and released, this [patch](https://lore.kernel.org/linux-arm-kernel/20240603012804.122215-2-ben@bens.haus/) needs to be applied to Linux to enable frequency scaling with a maximum clock speed of 1.2Ghz. A PKBGUILD to patch and package the kernel for Arch Linux can be found [here](https://github.com/bschnei/linux-a3700/).
 
 Alternatively, frequency scaling will work without patching the kernel if the bootloader sets the CPU clock to 1GHz (`make CLOCKSPRESET=CPU_1000_DDR_800`), but that will be the maximum available frequency to the operating system.
 

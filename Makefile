@@ -13,8 +13,10 @@ WTP_SRC		:= ${BASE_DIR}/A3700-utils-marvell
 MV_DDR_SRC	:= ${BASE_DIR}/mv-ddr-marvell
 
 # see https://trustedfirmware-a.readthedocs.io/en/latest/plat/marvell/armada/build.html
+# and U-Boot source for device-specific settings. defaults are for ESPRESSObin Ultra
 CLOCKSPRESET ?= CPU_1200_DDR_750
 DDR_TOPOLOGY ?= 5
+UBOOT_CONFIG ?= mvebu_espressobin_ultra-88f3720_defconfig
 
 all: bubt_image
 
@@ -43,18 +45,7 @@ ${MBB_SRC}/wtmi_app.bin: FORCE
 		wtmi_app.bin
 
 ${UBOOT_SRC}/u-boot.bin: FORCE
-
-	# restore/clean upstream u-boot source
-	git -C ${UBOOT_SRC} restore .
-	git -C ${UBOOT_SRC} clean -f
-
-	# patch relevant device trees
-	git apply --directory=u-boot u-boot-dts.patch
-
-	# patch configuration
-	cp mvebu_espressobin_ultra-88f3720_defconfig ${UBOOT_SRC}/configs
-
-	$(MAKE) -C ${UBOOT_SRC} CROSS_COMPILE=${CROSS_COMPILE} mvebu_espressobin_ultra-88f3720_defconfig
+	$(MAKE) -C ${UBOOT_SRC} CROSS_COMPILE=${CROSS_COMPILE} ${UBOOT_CONFIG}
 	$(MAKE) -C ${UBOOT_SRC} CROSS_COMPILE=${CROSS_COMPILE}
 
 clean:

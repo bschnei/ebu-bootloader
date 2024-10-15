@@ -7,7 +7,7 @@ I also found the following issues with the devices I received from Globalscale i
 * [UEFI on U-Boot](https://docs.u-boot.org/en/latest/develop/uefi/uefi.html) was [broken](https://lore.kernel.org/regressions/NpVfaMj--3-9@bens.haus/T/).
 * The hardware random number generator contained in the Cortex-M3 coprocessor was [not available to the OS](https://gitlab.nic.cz/turris/mox-boot-builder).
 
-This project fixed these issues and seeks to contribute the fixes to upstream projects. This project is only focused on the ESPRESSObin Ultra but contributions to support other devices that use the A3700 chipset are welcome.
+This project fixed these issues. This guide is specifically for the ESPRESSObin Ultra, but it can be adapted to build bootloaders for other A3700 devices.
 
 ## Build Host
 
@@ -25,7 +25,7 @@ While the Armada 3720 uses 64-bit ARMv8 processors, `arm-linux-gnueabi` is the 3
 I'm currently building with GCC 14.1, but older compiler versions should work OK. I strongly recommend using the same version of GCC for all three architectures (x64, arm, aarch64). Inconsistent compiler versions could lead to a build that appears to complete just fine but won't actually boot.
 
 ## Building
-A detailed explanation of the build process this project follows can be found [here](https://trustedfirmware-a.readthedocs.io/en/latest/plat/marvell/armada/build.html). Note that this project uses [git submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules) which need to be initialized and updated prior to building.
+A detailed explanation of the build process this project follows can be found [here](https://trustedfirmware-a.readthedocs.io/en/stable/plat/marvell/armada/build.html). Note that this project uses [git submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules) which need to be initialized and updated prior to building.
 
 To build the required [Trusted Firmware-A](https://www.trustedfirmware.org/projects/tf-a) (TF-A) image used by [bubt](https://source.denx.de/u-boot/u-boot/-/blob/master/doc/mvebu/cmd/bubt.txt) to update the device's bootloader, run:
 ```
@@ -54,9 +54,6 @@ After you are comfortable with the stability and performance observed in testing
 Sideloading can also be used to recover from a bad bootloader flashed to permanent storage (e.g. power goes out while flashing, bit flips, etc.), but you have to have a known stable bootloader handy. I use the `archive.sh` script and mount the build directory directly to a USB thumb drive I use exclusively for storing builds. To recover: sideload your known working good image, interrupt U-Boot, and then use `bubt` to flash the good bootloader to SPI.
 
 ## Notes
-
-### U-Boot
-Support for the ESPRESSObin Ultra has been [merged](https://source.denx.de/u-boot/custodians/u-boot-marvell/-/commit/d901c9b8d69e2036c3e991e0364b5eb008788a32) into the Marvell ARM Custodian Tree. This should make it part of the 2024.10 release of U-Boot. Until then, configuration (mvebu_espressobin_ultra-88f3720_defconfig) is copied into `u-boot/configs` and the device tree (u-boot-dts.patch) is patched in.
 
 ### CPU Frequency Scaling at 1.2GHz
 The Armada 3720 CPU (88F3720) is capable of speeds up to 1.2Ghz, but my devices arrived underclocked by the factory bootloader. When I used a bootloader built with `CLOCKSPRESET=CPU_1200_DDR_750`, Linux was unable to manage the CPU frequency (the kernel module `cpufreq-dt` will not load), and the system will run stably but at full speed (1.2Ghz) *continuously*. This is because support for frequency scaling when the bootloader set the frequency to 1.2Ghz was [disabled in the kernel](https://github.com/torvalds/linux/commit/484f2b7c61b9ae58cc00c5127bcbcd9177af8dfe).

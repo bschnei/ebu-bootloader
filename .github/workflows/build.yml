@@ -1,0 +1,42 @@
+name: Build and release
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Install build dependencies
+      run: sudo apt-get install --assume-yes gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi libcrypto++-dev libgnutls28-dev uuid-dev
+
+    - name: Download source code
+      run: |
+        git clone --depth 1 https://github.com/bschnei/ebu-bootloader.git .
+        git submodule sync
+        git -c protocol.version=2 submodule update --init --force --depth=1
+
+    - name: Build
+      run: make
+
+    - name: Save image to artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        path: trusted-firmware-a/build/a3700/release/flash-image.bin
+
+    - name: Create release
+      if: ${{ startsWith(github.ref, 'refs/tags/') }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        sha256sum $GITHUB_WORKSPACE/trusted-firmware-a/build/a3700/release/flash-image.bin | head --bytes=64 > sha256sum.txt
+        gh release create ${{ github.ref_name }} \
+            --generate-notes \
+            $GITHUB_WORKSPACE/trusted-firmware-a/build/a3700/release/flash-image.bin \
+            sha256sum.txt

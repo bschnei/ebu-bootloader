@@ -1,9 +1,10 @@
-name: Build for release
+name: Build for testing
 
 on:
+  workflow_dispatch:
   push:
     branches:
-    - "main"
+    - "test"
 
 jobs:
   build:
@@ -22,12 +23,7 @@ jobs:
     - name: Build
       run: make
 
-    - name: Create release
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        sha256sum $GITHUB_WORKSPACE/trusted-firmware-a/build/a3700/release/flash-image.bin | head --bytes=64 > sha256sum.txt
-        gh release create "$(date +'%Y.%m.%d')" \
-            --generate-notes \
-            $GITHUB_WORKSPACE/trusted-firmware-a/build/a3700/release/flash-image.bin \
-            sha256sum.txt
+    - name: Save image to artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        path: trusted-firmware-a/build/a3700/release/flash-image.bin

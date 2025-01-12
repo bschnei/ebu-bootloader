@@ -33,7 +33,8 @@ ${TFA_SRC}/build/a3700/release/flash-image.bin: u-boot wtmi_app FORCE
 		DDR_TOPOLOGY=${DDR_TOPOLOGY} \
 		CLOCKSPRESET=${CLOCKSPRESET} \
 		WTP=${WTP_SRC} \
-		CRYPTOPP_PATH=${BASE_DIR}/cryptopp \
+		CRYPTOPP_LIBDIR=/usr/lib/ \
+		CRYPTOPP_INCDIR=/usr/include/crypto++/ \
 		BL33=${UBOOT_SRC}/u-boot.bin \
 		WTMI_IMG=${MBB_SRC}/wtmi_app.bin \
 		mrvl_flash

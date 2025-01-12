@@ -1,9 +1,6 @@
 [submodule "trusted-firmware-a"]
 	path = trusted-firmware-a
 	url = https://git.trustedfirmware.org/TF-A/trusted-firmware-a.git
-[submodule "cryptopp"]
-	path = cryptopp
-	url = https://github.com/weidai11/cryptopp.git
 [submodule "A3700-utils-marvell"]
 	path = A3700-utils-marvell
 	url = https://github.com/MarvellEmbeddedProcessors/A3700-utils-marvell.git

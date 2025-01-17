@@ -1,13 +1,18 @@
 # ESPRESSObin Ultra Bootloader
 
-The [Globalscale ESPRESSObin Ultra](https://globalscaletechnologies.com/product/espressobin-ultra/) is a network appliance built with Marvell's Armada 3720 SoC (A3700). The source for its bootloader is open, but Globalscale does not maintain their source. [Their repos](https://github.com/globalscaletechnologies) are forked off old versions of upstream U-Boot, [ARM Trusted Firmware-A (TF-A)](https://www.trustedfirmware.org/projects/tf-a), and Marvell repos. Their [build instructions](https://espressobin.net/espressobin-ultra-build-instruction/) also refer to outdated versions of Linux and build tools.
+The [Globalscale ESPRESSObin Ultra](https://globalscaletechnologies.com/product/espressobin-ultra/) is a network appliance built with Marvell's Armada 3720 SoC (A3720). The A3700 product line is part of the Marvell EBU platform (mvebu). The source for its firmware bootloader is open, but Globalscale does not maintain their source. [Their repositories](https://github.com/globalscaletechnologies) are forks of old versions of U-Boot, [ARM Trusted Firmware-A](https://www.trustedfirmware.org/projects/tf-a) (TF-A), and Marvell repositories. Their [build instructions](https://espressobin.net/espressobin-ultra-build-instruction/) also reference outdated build tools.
 
 I also found the following issues with the devices I received from Globalscale in 2023:
-* The CPU was underclocked. The maximum advertised frequency is 1.2Ghz, but the factory bootloader set the clock speed to 800Mhz. See Notes section below.
+* The CPU was underclocked. The maximum advertised frequency is 1.2GHz, but the factory bootloader set the clock speed to 800MHz. See Notes section below.
 * [UEFI on U-Boot](https://docs.u-boot.org/en/latest/develop/uefi/uefi.html) was [broken](https://lore.kernel.org/regressions/NpVfaMj--3-9@bens.haus/T/).
 * The hardware random number generator contained in the Cortex-M3 coprocessor was [not available to the OS](https://gitlab.nic.cz/turris/mox-boot-builder).
 
-This project fixed these issues. This guide is specifically for the ESPRESSObin Ultra, but it can be adapted to build bootloaders for other A3700 devices.
+These issues are fixed in this project's releases. Releases are specifically for the ESPRESSObin Ultra, but the Makefile can be adjusted to build bootloaders for other A3700 devices.
+
+## Serial console
+The ESPRESSObin Ultra provides a convenient serial console via its micro USB port. This console is the only way to update the bootloader and troubleshoot issues that occur early in the boot process.
+
+The console is accessed by connecting the micro USB port to another computer's USB port. This should create a USB device node (e.g. `/dev/ttyUSB0`) automatically which can then be opened with a terminal emulator with support for serial consoles (e.g. [PuTTY](https://www.putty.org/) or [screen](https://www.gnu.org/software/screen/)).
 
 ## Testing
 The [mox-imager](https://gitlab.nic.cz/turris/mox-imager) tool makes it possible to boot the device from a bootloader image *without flashing the new image to the device's permanent storage* (SPINOR). I'll refer to this process as *sideloading*.
@@ -23,7 +28,7 @@ To use mox-imager, connect the USB serial console port to the Linux host that wi
 Follow the on-screen instructions. It is normal for mox-imager to need several power cycles before successfully putting the device in sideload mode.
 
 ## Flashing to Permanent Storage
-The [bubt](https://source.denx.de/u-boot/u-boot/-/blob/master/doc/mvebu/cmd/bubt.txt) utility is used to flash a bootloader image to   After you are comfortable with the stability and performance observed in testing, put the TF-A image file onto a USB flash drive and plug it into the device. Power cycle and stop the boot process at U-Boot. Run `bubt flash-image.bin spi usb` to flash the image to the device's permanent storage. Resetting the device will then cause it to load the newly flashed image.
+The [bubt](https://source.denx.de/u-boot/u-boot/-/blob/master/doc/mvebu/cmd/bubt.txt) utility is used to flash a bootloader image to permanent storage. After you are comfortable with the stability and performance observed in testing, put the TF-A image file onto a USB flash drive and plug it into the device. Power cycle and stop the boot process at U-Boot. Run `bubt flash-image.bin spi usb` to flash the image to the device's permanent storage. Resetting the device will then cause it to load the newly flashed image.
 
 ## Recovery
 Sideloading can also be used to recover from a bad bootloader flashed to permanent storage (e.g. power goes out while flashing, bit flips, etc.), but you have to have a known working/stable bootloader handy. To recover: sideload your known working good image, interrupt U-Boot, and then use `bubt` to flash the good bootloader to SPI.
@@ -33,7 +38,7 @@ Sideloading can also be used to recover from a bad bootloader flashed to permane
 ### Building
 General documentation for building TF-A bootloaders for Marvell hardware can be found [here](https://trustedfirmware-a.readthedocs.io/en/stable/plat/marvell/armada/build.html).
 
-We use GitHub Actions to build and release bootloader images so the release process is transparent. The steps for building are contained in the `.github/workflows` files and can be used to replicate the build process on any x64 Linux host.
+This project uses GitHub Actions to build and release bootloader images so the release process is transparent. The steps for building are contained in the `.github/workflows` files and can be used to replicate the build process on any x64 Linux host.
 
 The most common reason for building to fail is the absence of a required build dependency. For Arch Linux, the `base-devel` meta package, `bc`, and the cross-compilers `arm-linux-gnueabi-gcc` and `aarch64-linux-gnu-gcc` should be all that's needed. When managing build dependencies manually, I strongly recommend using the same version of GCC for all three architectures (x64, arm, aarch64). Inconsistent compiler versions could lead to a build that appears to complete just fine but won't actually boot.
 

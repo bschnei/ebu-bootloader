@@ -26,7 +26,7 @@ Follow the on-screen instructions. It is normal for mox-imager to need several p
 The [bubt](https://source.denx.de/u-boot/u-boot/-/blob/master/doc/mvebu/cmd/bubt.txt) utility is used to flash a bootloader image to   After you are comfortable with the stability and performance observed in testing, put the TF-A image file onto a USB flash drive and plug it into the device. Power cycle and stop the boot process at U-Boot. Run `bubt flash-image.bin spi usb` to flash the image to the device's permanent storage. Resetting the device will then cause it to load the newly flashed image.
 
 ## Recovery
-Sideloading can also be used to recover from a bad bootloader flashed to permanent storage (e.g. power goes out while flashing, bit flips, etc.), but you have to have a known stable bootloader handy. I use the `archive.sh` script and mount the build directory directly to a USB thumb drive I use exclusively for storing builds. To recover: sideload your known working good image, interrupt U-Boot, and then use `bubt` to flash the good bootloader to SPI.
+Sideloading can also be used to recover from a bad bootloader flashed to permanent storage (e.g. power goes out while flashing, bit flips, etc.), but you have to have a known working/stable bootloader handy. To recover: sideload your known working good image, interrupt U-Boot, and then use `bubt` to flash the good bootloader to SPI.
 
 ## Notes
 

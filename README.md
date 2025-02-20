@@ -10,35 +10,35 @@ I also found the following issues with the devices I received from Globalscale i
 These issues are fixed in this project's releases. Releases are specifically for the ESPRESSObin Ultra, but the Makefile can be adjusted to build bootloaders for other A3700 devices.
 
 ## Serial console
-The ESPRESSObin Ultra provides a convenient serial console via its micro USB port. This console is the only way to update the bootloader and troubleshoot issues that occur early in the boot process.
+The ESPRESSObin Ultra provides a convenient serial console via its Micro-USB port. This console is the only way to update the bootloader and troubleshoot issues that occur early in the boot process (i.e. before the kernel takes over management of the serial console). As a result, setting up console access and becoming familiar with your terminal emulator of choice are prerequisites.
 
-The console is accessed by connecting the micro USB port to another computer's USB port. This should create a USB device node (e.g. `/dev/ttyUSB0`) automatically which can then be opened with a terminal emulator with support for serial consoles (e.g. [PuTTY](https://www.putty.org/) or [screen](https://www.gnu.org/software/screen/)).
+Access the console by connecting the Micro-USB port to another computer's USB port. When the other computer is a Linux host, a USB device node (e.g. `/dev/ttyUSB0`) should appear automatically. This device node can then be opened with a terminal emulator with support for serial consoles (e.g. [PuTTY](https://www.putty.org/) or [screen](https://www.gnu.org/software/screen/)).
 
-## Testing
-The [mox-imager](https://gitlab.nic.cz/turris/mox-imager) tool makes it possible to boot the device from a bootloader image *without flashing the new image to the device's permanent storage* (SPINOR). I'll refer to this process as *sideloading*.
+## Testing via UART
+The [mox-imager](https://gitlab.nic.cz/turris/mox-imager) tool allows us to upload a firmware image over UART (i.e. the same USB connection used by the serial console). This means we can test a potential new image file by uploading it to the device and attempting to boot it directly; we do not need to overwrite a known working image in the device's permanent storage (SPINOR) in order to test it.
 
-Sideloading facilitates testing a bootloader image without the need to flash the device. For example, if you sideload a potential new TF-A image via mox-imager and discover that it's so broken you cannot boot Linux, you can simply power cycle the device to boot from the bootloader stored to SPINOR.
+For example, if you upload a potential new TF-A image via mox-imager and discover that it's so broken you cannot boot Linux, you can simply power cycle the device and it will go back to booting as it normally would from the bootloader stored to SPINOR.
 
-**Note:** successfully booting Linux is not a guarantee that a new image is also *stable* and *fully functional*. Because use cases vary (e.g. I don't use the Bluetooth/WiFi device), only you can decide whether or not you are comfortable flashing to permanent storage.
+**Note:** successfully booting Linux is not a guarantee that a new image is also *stable* and *fully functional*. Because use cases vary (e.g. I don't use the Bluetooth/WiFi device), only you can decide whether or not you are comfortable flashing an image to permanent storage.
 
-For my use case, I check boot messages and systemd logs to make sure there aren't any unexpected/new messages. I then typically use the new image for about a week before flashing to a production device used as home edge router. I put the CPU and memory under load by compiling source and/or running [stress](https://github.com/resurrecting-open-source-projects/stress). I also spot check device features I knew to be working if upstream has changes to device trees, e.g.
+For my use case, I check boot messages and systemd logs to make sure there aren't any unexpected/new messages. I then typically use the new image for about a week before flashing to a production device used as home edge router. I put the CPU and memory under load by compiling source and/or running [stress](https://github.com/resurrecting-open-source-projects/stress). I also spot check device features I knew to be working if upstream has changes to device trees, for example.
 
-To use mox-imager, connect the USB serial console port to the Linux host that will run mox-imager and has the TF-A image you want to sideload. Linux should create a device node *like* `/dev/ttyUSB0`. Be sure to close any other programs that could interfere with the device node that represents the USB console such as PuTTY. A sample command might be: `mox-imager -D /dev/ttyUSB0 -b 3000000 -t -E flash-image.bin` where `flash-image.bin` is the path to the image you want to sideload.
+To use `mox-imager`, connect the USB serial console port to the Linux host that will run the program and has the TF-A image you want to upload. Be sure to close any other programs that could interfere with the device node that represents the USB console such as PuTTY. A sample command might be: `mox-imager -D /dev/ttyUSB0 -b 3000000 -t -E flash-image.bin` where `flash-image.bin` is the path to the image you want to sideload.
 
-Follow the on-screen instructions. It is normal for mox-imager to need several power cycles before successfully putting the device in sideload mode.
+Follow the on-screen instructions. It is normal for `mox-imager` to need several power cycles before successfully putting the device in UART upload mode.
 
 ## Flashing to Permanent Storage
-The [bubt](https://source.denx.de/u-boot/u-boot/-/blob/master/doc/mvebu/cmd/bubt.txt) utility is used to flash a bootloader image to permanent storage. After you are comfortable with the stability and performance observed in testing, put the TF-A image file onto a USB flash drive and plug it into the device. Power cycle and stop the boot process at U-Boot. Run `bubt flash-image.bin spi usb` to flash the image to the device's permanent storage. Resetting the device will then cause it to load the newly flashed image.
+The [bubt](https://source.denx.de/u-boot/u-boot/-/blob/master/doc/mvebu/cmd/bubt.txt) utility is used to flash a bootloader image to permanent storage. After you are comfortable with the stability and performance observed in testing, put the TF-A image file onto a USB flash drive and plug it into the device. Power cycle and interrupt the boot process at U-Boot. Run `bubt flash-image.bin spi usb` to flash the image to the device's permanent storage. Resetting the device will then cause it to load the newly flashed image.
 
 ## Recovery
-Sideloading can also be used to recover from a bad bootloader flashed to permanent storage (e.g. power goes out while flashing, bit flips, etc.), but you have to have a known working/stable bootloader handy. To recover: sideload your known working good image, interrupt U-Boot, and then use `bubt` to flash the good bootloader to SPI.
+UART uploading via `mox-imager` can also be used to recover from a bad bootloader flashed to permanent storage (e.g. power goes out while flashing, bit flips, etc.), but you have to have a known working/stable bootloader handy. To recover: upload your known working good image with `mox-imager`, interrupt booting at U-Boot, and then use `bubt` to flash the good bootloader to permanent storage as described above.
 
 ## Notes
 
 ### Building
-General documentation for building TF-A bootloaders for Marvell hardware can be found [here](https://trustedfirmware-a.readthedocs.io/en/stable/plat/marvell/armada/build.html).
+General documentation for building firmware bootloaders for Marvell hardware can be found [here](https://trustedfirmware-a.readthedocs.io/en/stable/plat/marvell/armada/build.html).
 
-This project uses GitHub Actions to build and release bootloader images so the release process is transparent. The steps for building are contained in the `.github/workflows` files and can be used to replicate the build process on any x64 Linux host.
+This project uses GitHub Actions to build and release bootloader images so the build process is transparent and replicable. The steps for building are contained in the `.github/workflows` files and can be used to replicate the build process on any x64 Linux host.
 
 The most common reason for building to fail is the absence of a required build dependency. For Arch Linux, the `base-devel` meta package, `bc`, and the cross-compilers `arm-linux-gnueabi-gcc` and `aarch64-linux-gnu-gcc` should be all that's needed. When managing build dependencies manually, I strongly recommend using the same version of GCC for all three architectures (x64, arm, aarch64). Inconsistent compiler versions could lead to a build that appears to complete just fine but won't actually boot.
 
@@ -49,11 +49,11 @@ Note that this project uses [git submodules](https://git-scm.com/book/en/v2/Git-
 When successful, the image meant to be used with `bubt` is output to `trusted-firmware-a/build/a3700/release/flash-image.bin`.
 
 ### CPU Frequency Scaling at 1.2GHz
-The Armada 3720 CPU (88F3720) is capable of speeds up to 1.2Ghz, but my devices arrived underclocked by the factory bootloader. When I used a bootloader built with `CLOCKSPRESET=CPU_1200_DDR_750`, Linux was unable to manage the CPU frequency (the kernel module `cpufreq-dt` will not load), and the system will run stably but at full speed (1.2Ghz) *continuously*. This is because support for frequency scaling when the bootloader set the frequency to 1.2Ghz was [disabled in the kernel](https://github.com/torvalds/linux/commit/484f2b7c61b9ae58cc00c5127bcbcd9177af8dfe).
+The Armada 3720 CPU (88F3720) is capable of speeds up to 1.2Ghz, but my devices arrived underclocked by the factory bootloader. When I used a bootloader built with `CLOCKSPRESET=CPU_1200_DDR_750`, Linux was unable to manage the CPU frequency (the kernel module `cpufreq-dt` will not load), and the system will run stably but at full speed (1.2Ghz) *continuously*. This is because support for frequency scaling when the bootloader sets the frequency to 1.2Ghz was [disabled in the kernel](https://github.com/torvalds/linux/commit/484f2b7c61b9ae58cc00c5127bcbcd9177af8dfe).
 
-This device has a long and complicated [history](https://github.com/MarvellEmbeddedProcessors/linux-marvell/issues/20) of instability. It seems likely that at least some (if not all) of the reported instability may have been actually the result of a bad value in Marvell's memory initaliziation [all along](https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell/pull/44) and not the result of a bad kernel driver.
+This chipset has a long and complicated [history](https://github.com/MarvellEmbeddedProcessors/linux-marvell/issues/20) of instability. It seems likely that at least some (if not all) of the reported instability may have been actually the result of a bad value in Marvell's memory initialization [all along](https://github.com/MarvellEmbeddedProcessors/mv-ddr-marvell/pull/44) and not the result of a bad kernel driver.
 
-Unless/until it is merged and released, the change in this [patch](https://lore.kernel.org/linux-arm-kernel/20241125211452.14987-1-ben@bens.haus/) needs to be applied to Linux to enable frequency scaling with a maximum clock speed of 1.2Ghz. A PKBGUILD to patch and package the kernel for Arch Linux can be found [here](https://github.com/bschnei/linux-a3700/).
+Until it is released, the change in this [patch](https://git.kernel.org/pub/scm/linux/kernel/git/vireshk/pm.git/patch/?id=f2d32942026c05acc49d5f445dd38931419967aa) needs to be applied to Linux to enable frequency scaling with a maximum clock speed of 1.2Ghz. A PKBGUILD to patch and package the kernel for Arch Linux can be found [here](https://github.com/bschnei/linux-a3700/).
 
 Alternatively, frequency scaling will work without patching the kernel if the bootloader sets the CPU clock to 1GHz (`make CLOCKSPRESET=CPU_1000_DDR_800`), but that will be the maximum available frequency to the operating system.
 

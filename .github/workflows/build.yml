@@ -12,7 +12,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
     - name: Install build dependencies
@@ -22,7 +22,8 @@ jobs:
 
     - name: Download source code
       run: |
-        git clone --depth 1 https://github.com/bschnei/ebu-bootloader.git .
+        git clone https://github.com/bschnei/ebu-bootloader.git .
+        git checkout ${GITHUB_REF_NAME}
         git submodule sync
         git -c protocol.version=2 submodule update --init --force --depth=1
 

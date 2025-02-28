@@ -46,6 +46,7 @@ ${MBB_SRC}/wtmi_app.bin: FORCE
 		wtmi_app.bin
 
 ${UBOOT_SRC}/u-boot.bin: FORCE
+	cp mvebu_espressobin_ultra-88f3720_defconfig u-boot/configs/mvebu_espressobin_ultra-88f3720_defconfig
 	$(MAKE) -C ${UBOOT_SRC} CROSS_COMPILE=${CROSS_COMPILE} ${UBOOT_CONFIG}
 	$(MAKE) -C ${UBOOT_SRC} CROSS_COMPILE=${CROSS_COMPILE}
 

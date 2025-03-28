@@ -17,6 +17,7 @@ jobs:
     steps:
     - name: Install build dependencies
       run: |
+        sudo apt-mark hold firefox
         sudo apt-get update && sudo apt-get upgrade
         sudo apt-get install --assume-yes gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi libcrypto++-dev libgnutls28-dev uuid-dev
 

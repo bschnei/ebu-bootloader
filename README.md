@@ -10,12 +10,14 @@ I also found the following issues with the devices I received from Globalscale i
 These issues are fixed in this project's releases. Releases are specifically for the ESPRESSObin Ultra, but the Makefile can be adjusted to build bootloaders for other A3700 devices.
 
 ## Serial console
-The ESPRESSObin Ultra provides a convenient serial console via its Micro-USB port. This console is the only way to update the bootloader and troubleshoot issues that occur early in the boot process (i.e. before the kernel takes over management of the serial console). As a result, setting up console access and becoming familiar with your terminal emulator of choice are prerequisites.
+The ESPRESSObin Ultra provides a convenient serial console via its Micro-USB port. This console is the only way to update the bootloader and troubleshoot issues that occur early in the boot process (i.e. before the kernel takes over management of the serial console). As a result, setting up console access and becoming familiar with your terminal emulator of choice are prerequisites to updating the bootloader.
 
 Access the console by connecting the Micro-USB port to another computer's USB port. When the other computer is a Linux host, a USB device node (e.g. `/dev/ttyUSB0`) should appear automatically. This device node can then be opened with a terminal emulator with support for serial consoles (e.g. [PuTTY](https://www.putty.org/) or [screen](https://www.gnu.org/software/screen/)).
 
+My preferred tool for connecting to the serial console is [mox-imager](https://gitlab.nic.cz/turris/mox-imager). The source for this tool is available in the `mox-boot-builder` repository which is included in this repository as a submodule. After initializing submodules, the tool can be compiled by running `make` with the mox-imager directory as your working directory. `./mox-imager -D /dev/ttyUSB0 -t` will connect to the device inside whatever terminal you are already using.
+
 ## Testing via UART
-The [mox-imager](https://gitlab.nic.cz/turris/mox-imager) tool allows us to upload a firmware image over UART (i.e. the same USB connection used by the serial console). This means we can test a potential new image file by uploading it to the device and attempting to boot it directly; we do not need to overwrite a known working image in the device's permanent storage (SPINOR) in order to test it.
+The `mox-imager` tool also allows us to upload a firmware image over UART (i.e. the same USB connection used by the serial console). This means we can test a potential new image file by uploading it to the device and attempting to boot it directly; we do not need to overwrite a known working image in the device's permanent storage (SPINOR) in order to test it.
 
 For example, if you upload a potential new TF-A image via mox-imager and discover that it's so broken you cannot boot Linux, you can simply power cycle the device and it will go back to booting as it normally would from the bootloader stored to SPINOR.
 

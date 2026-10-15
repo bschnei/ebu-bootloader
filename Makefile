@@ -47,7 +47,6 @@ ${MBB_SRC}/wtmi_app.bin: FORCE
 
 ${UBOOT_SRC}/u-boot.bin: FORCE
 	git -C ${UBOOT_SRC} restore .
-	git -C ${UBOOT_SRC} apply ${BASE_DIR}/devres.patch
 	$(MAKE) -C ${UBOOT_SRC} CROSS_COMPILE=${CROSS_COMPILE} ${UBOOT_CONFIG}
 	$(MAKE) -C ${UBOOT_SRC} CROSS_COMPILE=${CROSS_COMPILE}
 

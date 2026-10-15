@@ -2,8 +2,8 @@ name: Build and release
 
 on:
   push:
-    branches:
-      - '**'
+    branches-ignore:
+      - main
     tags:
       - '**'
     paths-ignore:
